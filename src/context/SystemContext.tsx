@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { systemService } from "@/services/system.service";
+import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 
 interface SystemCtx {
@@ -17,6 +18,7 @@ export function SystemProvider({ children }: { children: ReactNode }) {
   const [autoPayout, setAutoPayout] = useState(false);
   const [botId, setBotId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
 
   const fetchConfig = async () => {
     try {
@@ -34,8 +36,12 @@ export function SystemProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    fetchConfig();
-  }, []);
+    if (user) {
+      fetchConfig();
+    } else {
+      setLoading(false);
+    }
+  }, [user]);
 
   const toggleBot = async () => {
     if (botId === null) return;
