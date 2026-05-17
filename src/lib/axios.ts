@@ -33,7 +33,11 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !isAuthPath) {
       localStorage.removeItem("p2p_token");
       localStorage.removeItem("p2p_user");
-      if (window.location.pathname !== "/login") {
+      
+      // Dispatch event for AuthContext to update React state without a full reload
+      window.dispatchEvent(new Event("auth_unauthorized"));
+      
+      if (!window.location.pathname.includes("/login")) {
         window.location.href = "/login";
       }
     }
