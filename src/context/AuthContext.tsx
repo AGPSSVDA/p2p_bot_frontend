@@ -38,6 +38,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     };
     initAuth();
+
+    const handleUnauthorized = () => {
+      setUser(null);
+      setToken(null);
+    };
+
+    window.addEventListener("auth_unauthorized", handleUnauthorized);
+    return () => window.removeEventListener("auth_unauthorized", handleUnauthorized);
   }, []);
 
   const login = async (email: string, password: string) => {
