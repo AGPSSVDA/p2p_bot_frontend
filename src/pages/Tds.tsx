@@ -1,30 +1,32 @@
 import { useEffect, useMemo, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Download, FileBarChart2, Search, ArrowUpDown, Loader2, Calendar as CalendarIcon, ArrowRight, X } from "lucide-react";
-import { payoutService, Payout } from "@/services/payout.service";
+import { tdsService, TdsRecord, TdsPeriod } from "@/services/tds.service";
 import { Pagination } from "@/components/Pagination";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
-import { format, subDays, isWithinInterval, startOfDay, endOfDay } from "date-fns";
+import { format, subDays } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DateRange } from "react-day-picker";
 
 type SortKey = "date" | "amount" | "tds_deducted" | "tds_deposited";
-type Period = "ALL" | "MONTH" | "QUARTER" | "CUSTOM";
 
 export default function Tds() {
-  const [payouts, setPayouts] = useState<Payout[]>([]);
+  const [records, setRecords] = useState<TdsRecord[]>([]);
+  const [summary, setSummary] = useState<{ records: number; payout_volume: number; total_tds: number }>({
+    records: 0, payout_volume: 0, total_tds: 0,
+  });
   const [search, setSearch] = useState("");
-  const [period, setPeriod] = useState<Period>("ALL");
+  const [period, setPeriod] = useState<TdsPeriod>("ALL");
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: subDays(new Date(), 7),
     to: new Date(),
   });
-  
+
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<"desc" | "asc">("desc");
   const [page, setPage] = useState(1);
@@ -32,65 +34,44 @@ export default function Tds() {
   const [showExportConfirm, setShowExportConfirm] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
-  const fetchPayouts = async () => {
+  const fetchRecords = async () => {
     try {
-      const res = await payoutService.getPayouts();
-      if (res.success && res.data) {
-        setPayouts(res.data);
+      setLoading(true);
+      const params: any = { period };
+      if (period === "CUSTOM" && dateRange?.from && dateRange?.to) {
+        params.from = format(dateRange.from, "yyyy-MM-dd");
+        params.to = format(dateRange.to, "yyyy-MM-dd 23:59:59");
       }
-    } catch (error) {
-      console.error("Failed to fetch payouts:", error);
-      toast.error("Failed to load TDS data");
+      if (search) params.q = search;
+      const data = await tdsService.list(params);
+      setRecords(data.records);
+      setSummary(data.summary);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Failed to load TDS data");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchPayouts();
-  }, []);
+    fetchRecords();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [period, dateRange?.from, dateRange?.to, search]);
 
-  const filtered = useMemo(() => {
-    const now = new Date();
-    
-    return payouts
-      .filter((r) => {
-        const rDate = new Date(r.date);
-        
-        if (period === "MONTH") {
-          if (rDate < subDays(now, 30)) return false;
-        } else if (period === "QUARTER") {
-          if (rDate < subDays(now, 90)) return false;
-        } else if (period === "CUSTOM") {
-          if (dateRange?.from && dateRange?.to) {
-            if (!isWithinInterval(rDate, { 
-              start: startOfDay(dateRange.from), 
-              end: endOfDay(dateRange.to) 
-            })) return false;
-          }
-        }
-        
-        if (!search) return true;
-        const q = search.toLowerCase();
-        return (
-          (r.name?.toLowerCase() || "").includes(q) || 
-          r.pan.toLowerCase().includes(q)
-        );
-      })
-      .sort((a, b) => {
-        const dir = sortDir === "asc" ? 1 : -1;
-        if (sortKey === "date") return dir * (new Date(a.date).getTime() - new Date(b.date).getTime());
-        return dir * (parseFloat(a[sortKey]) - parseFloat(b[sortKey]));
-      });
-  }, [payouts, search, period, dateRange, sortKey, sortDir]);
+  const sorted = useMemo(() => {
+    const arr = [...records];
+    const dir = sortDir === "asc" ? 1 : -1;
+    arr.sort((a, b) => {
+      if (sortKey === "date") return dir * (new Date(a.date).getTime() - new Date(b.date).getTime());
+      return dir * (a[sortKey] - b[sortKey]);
+    });
+    return arr;
+  }, [records, sortKey, sortDir]);
 
   useEffect(() => { setPage(1); }, [search, period, dateRange]);
 
-  const totalAmt = filtered.reduce((a, r) => a + parseFloat(r.amount), 0);
-  const totalTds = filtered.reduce((a, r) => a + parseFloat(r.tds_deducted), 0);
-  
   const pageSize = 10;
-  const slice = filtered.slice((page - 1) * pageSize, page * pageSize);
+  const slice = sorted.slice((page - 1) * pageSize, page * pageSize);
 
   const toggleSort = (k: SortKey) => {
     if (sortKey === k) setSortDir((d) => d === "asc" ? "desc" : "asc");
@@ -98,7 +79,7 @@ export default function Tds() {
   };
 
   const handleExport = () => {
-    if (filtered.length === 0) {
+    if (sorted.length === 0) {
       toast.error("No data to export");
       return;
     }
@@ -122,38 +103,27 @@ export default function Tds() {
     const headerRow = worksheet.getRow(1);
     headerRow.eachCell((cell) => {
       cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 11 };
-      cell.fill = {
-        type: "pattern",
-        pattern: "solid",
-        fgColor: { argb: "FF4F46E5" },
-      };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4F46E5" } };
       cell.alignment = { vertical: "middle", horizontal: "center" };
-      cell.border = {
-        bottom: { style: "thin", color: { argb: "FF000000" } }
-      };
+      cell.border = { bottom: { style: "thin", color: { argb: "FF000000" } } };
     });
     headerRow.height = 30;
 
-    filtered.forEach((r, i) => {
+    sorted.forEach((r, i) => {
       const row = worksheet.addRow({
         sr: i + 1,
         date: r.date,
         name: r.name || "-",
-        pan: r.pan.toUpperCase(),
-        amount: parseFloat(r.amount),
-        deducted: parseFloat(r.tds_deducted),
-        deposited: parseFloat(r.tds_deposited),
+        pan: (r.pan || "").toUpperCase(),
+        amount: r.amount,
+        deducted: r.tds_deducted,
+        deposited: r.tds_deposited,
       });
-
       row.eachCell((cell, colNumber) => {
         cell.alignment = { vertical: "middle", horizontal: colNumber === 3 ? "left" : "center" };
         cell.font = { size: 10 };
         if (i % 2 !== 0) {
-          cell.fill = {
-            type: "pattern",
-            pattern: "solid",
-            fgColor: { argb: "FFF9FAFB" }
-          };
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF9FAFB" } };
         }
       });
       row.height = 25;
@@ -163,14 +133,16 @@ export default function Tds() {
     const rangeStr = period === "CUSTOM" && dateRange?.from && dateRange?.to
       ? `${format(dateRange.from, "dd-MMM")}_to_${format(dateRange.to, "dd-MMM")}`
       : period;
-    
     saveAs(new Blob([buffer]), `TDS_Report_${rangeStr}_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
-    
     setShowExportConfirm(false);
-    toast.success(`Exported ${filtered.length} records with premium formatting!`);
+    toast.success(`Exported ${sorted.length} records!`);
   };
 
-  const periodLabel = period === "ALL" ? "All Time" : period === "MONTH" ? "Monthly" : period === "QUARTER" ? "Quarterly" : "Custom Range";
+  const periodLabel = period === "ALL" ? "All Time"
+    : period === "MONTH" ? "Monthly"
+    : period === "QUARTER" ? "Quarterly"
+    : period === "YEAR" ? "Yearly"
+    : "Custom Range";
 
   return (
     <div className="space-y-6">
@@ -180,8 +152,8 @@ export default function Tds() {
           <p className="text-sm text-muted-foreground mt-1">Track TDS deductions across payouts.</p>
         </div>
         <div className="flex gap-2">
-          <motion.button 
-            whileTap={{ scale: 0.96 }} 
+          <motion.button
+            whileTap={{ scale: 0.96 }}
             onClick={handleExport}
             className="h-10 px-6 rounded-lg bg-primary text-primary-foreground text-sm font-semibold flex items-center gap-2 hover:bg-primary/90 transition shadow-[0_6px_22px_-8px_hsl(var(--primary)/0.6)]"
           >
@@ -191,9 +163,9 @@ export default function Tds() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-        <Stat label="Records" value={filtered.length.toString()} />
-        <Stat label="Payout Volume" value={`₹${totalAmt.toLocaleString("en-IN")}`} />
-        <Stat label="Total TDS" value={`₹${totalTds.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`} accent />
+        <Stat label="Records" value={summary.records.toString()} />
+        <Stat label="Payout Volume" value={`₹${summary.payout_volume.toLocaleString("en-IN")}`} />
+        <Stat label="Total TDS" value={`₹${summary.total_tds.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`} accent />
       </div>
 
       <div className="surface-card rounded-2xl p-4 flex flex-col md:flex-row gap-4 items-center justify-between">
@@ -202,20 +174,23 @@ export default function Tds() {
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name or PAN…"
             className="w-full h-10 rounded-lg bg-surface-2 border border-border pl-10 pr-3 text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30 transition" />
         </div>
-        
+
         <div className="flex flex-col sm:flex-row items-center gap-2 w-full md:w-auto">
           <div className="flex gap-1 p-1 rounded-lg bg-surface-2 border border-border w-full sm:w-auto">
-            {(["ALL", "MONTH", "QUARTER"] as Period[]).map((p) => (
+            {(["ALL", "MONTH", "QUARTER", "YEAR"] as TdsPeriod[]).map((p) => (
               <button key={p} onClick={() => setPeriod(p)}
-                className={cn("flex-1 sm:flex-none px-3 h-8 rounded-md text-[11px] font-semibold transition whitespace-nowrap", period === p ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}>
-                {p === "ALL" ? "All time" : p === "MONTH" ? "Monthly" : "Quarterly"}
+                className={cn(
+                  "flex-1 sm:flex-none px-3 h-8 rounded-md text-[11px] font-semibold transition whitespace-nowrap",
+                  period === p ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                )}>
+                {p === "ALL" ? "All time" : p === "MONTH" ? "Monthly" : p === "QUARTER" ? "Quarterly" : "Yearly"}
               </button>
             ))}
           </div>
 
           <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
             <PopoverTrigger asChild>
-              <button 
+              <button
                 onClick={() => setPeriod("CUSTOM")}
                 className={cn(
                   "h-10 px-3 rounded-lg border border-border bg-surface-2 flex items-center justify-center gap-2 text-[11px] font-semibold transition w-full sm:w-auto sm:min-w-[140px]",
@@ -225,9 +200,7 @@ export default function Tds() {
                 <CalendarIcon className="h-3.5 w-3.5" />
                 {period === "CUSTOM" && dateRange?.from ? (
                   dateRange.to ? (
-                    <>
-                      {format(dateRange.from, "MMM dd")} - {format(dateRange.to, "MMM dd")}
-                    </>
+                    <>{format(dateRange.from, "MMM dd")} - {format(dateRange.to, "MMM dd")}</>
                   ) : (
                     format(dateRange.from, "MMM dd")
                   )
@@ -237,71 +210,56 @@ export default function Tds() {
               </button>
             </PopoverTrigger>
             <PopoverContent className="w-screen sm:w-auto p-0 border-0 sm:border bg-transparent sm:bg-popover shadow-none sm:shadow-md" align="end" sideOffset={8}>
-               <div className="surface-card sm:bg-popover rounded-2xl sm:rounded-xl overflow-hidden border border-border sm:border-none max-w-[95vw] mx-auto sm:mx-0">
-                 {/* Selection Status Header */}
-                 <div className="bg-surface-2 p-4 border-b border-border flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                       <div className="flex flex-col">
-                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">From</span>
-                          <span className={cn("text-xs font-semibold", !dateRange?.from && "text-muted-foreground/50")}>
-                             {dateRange?.from ? format(dateRange.from, "dd MMM yyyy") : "Select Date"}
-                          </span>
-                       </div>
-                       <ArrowRight className="h-4 w-4 text-muted-foreground/40" />
-                       <div className="flex flex-col">
-                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">To</span>
-                          <span className={cn("text-xs font-semibold", !dateRange?.to && "text-muted-foreground/50")}>
-                             {dateRange?.to ? format(dateRange.to, "dd MMM yyyy") : "Select Date"}
-                          </span>
-                       </div>
+              <div className="surface-card sm:bg-popover rounded-2xl sm:rounded-xl overflow-hidden border border-border sm:border-none max-w-[95vw] mx-auto sm:mx-0">
+                <div className="bg-surface-2 p-4 border-b border-border flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">From</span>
+                      <span className={cn("text-xs font-semibold", !dateRange?.from && "text-muted-foreground/50")}>
+                        {dateRange?.from ? format(dateRange.from, "dd MMM yyyy") : "Select Date"}
+                      </span>
                     </div>
-                    <button onClick={() => setIsCalendarOpen(false)} className="sm:hidden p-1 rounded-full hover:bg-surface-3 transition">
-                       <X className="h-4 w-4" />
-                    </button>
-                 </div>
-
-                 <div className="p-2 sm:p-3 overflow-x-auto no-scrollbar">
-                    <Calendar
-                      initialFocus
-                      mode="range"
-                      defaultMonth={dateRange?.from}
-                      selected={dateRange}
-                      onSelect={(range) => {
-                        setDateRange(range);
-                        // Auto close if range is selected on mobile if you want, or keep open for refinement
-                      }}
-                      numberOfMonths={window.innerWidth > 640 ? 2 : 1}
-                      className="rounded-lg"
-                    />
-                 </div>
-                 
-                 <div className="p-4 bg-surface-2 border-t border-border flex justify-end gap-2">
-                    <button 
-                      onClick={() => {
-                        setDateRange(undefined);
-                        setPeriod("ALL");
-                        setIsCalendarOpen(false);
-                      }}
-                      className="px-3 h-8 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground transition"
-                    >
-                       Reset
-                    </button>
-                    <button 
-                      onClick={() => setIsCalendarOpen(false)}
-                      disabled={!dateRange?.from || !dateRange?.to}
-                      className="px-4 h-8 rounded-lg bg-primary text-primary-foreground text-xs font-bold shadow-sm disabled:opacity-50"
-                    >
-                       Apply Range
-                    </button>
-                 </div>
-               </div>
+                    <ArrowRight className="h-4 w-4 text-muted-foreground/40" />
+                    <div className="flex flex-col">
+                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">To</span>
+                      <span className={cn("text-xs font-semibold", !dateRange?.to && "text-muted-foreground/50")}>
+                        {dateRange?.to ? format(dateRange.to, "dd MMM yyyy") : "Select Date"}
+                      </span>
+                    </div>
+                  </div>
+                  <button onClick={() => setIsCalendarOpen(false)} className="sm:hidden p-1 rounded-full hover:bg-surface-3 transition">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="p-2 sm:p-3 overflow-x-auto no-scrollbar">
+                  <Calendar
+                    initialFocus
+                    mode="range"
+                    defaultMonth={dateRange?.from}
+                    selected={dateRange}
+                    onSelect={(range) => setDateRange(range)}
+                    numberOfMonths={typeof window !== "undefined" && window.innerWidth > 640 ? 2 : 1}
+                    className="rounded-lg"
+                  />
+                </div>
+                <div className="p-4 bg-surface-2 border-t border-border flex justify-end gap-2">
+                  <button onClick={() => { setDateRange(undefined); setPeriod("ALL"); setIsCalendarOpen(false); }}
+                    className="px-3 h-8 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground transition">
+                    Reset
+                  </button>
+                  <button onClick={() => setIsCalendarOpen(false)}
+                    disabled={!dateRange?.from || !dateRange?.to}
+                    className="px-4 h-8 rounded-lg bg-primary text-primary-foreground text-xs font-bold shadow-sm disabled:opacity-50">
+                    Apply Range
+                  </button>
+                </div>
+              </div>
             </PopoverContent>
           </Popover>
         </div>
       </div>
 
       <div className="surface-card rounded-2xl overflow-hidden">
-        {/* Table Header */}
         <div className="hidden md:grid grid-cols-[0.5fr_1fr_1.5fr_1.2fr_1.2fr_1.2fr_1.2fr] gap-3 px-5 py-4 text-[10px] font-bold uppercase tracking-wider text-muted-foreground border-b border-border bg-surface-2/50">
           <span>SR NO.</span>
           <SortHeader label="DATE" active={sortKey === "date"} dir={sortDir} onClick={() => toggleSort("date")} />
@@ -327,24 +285,24 @@ export default function Tds() {
           <>
             <div className="hidden md:block">
               {slice.map((r, i) => (
-                <motion.div key={i}
+                <motion.div key={r.id}
                   initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.01 }}
                   className="grid grid-cols-[0.5fr_1fr_1.5fr_1.2fr_1.2fr_1.2fr_1.2fr] gap-3 px-5 py-4 border-b border-border hover:bg-surface-2/60 transition items-center"
                 >
                   <span className="text-xs text-muted-foreground">{(page - 1) * pageSize + i + 1}</span>
-                  <span className="text-xs">{r.date}</span>
+                  <span className="text-xs">{r.date_display || r.date}</span>
                   <span className="text-xs font-semibold">{r.name || "-"}</span>
                   <span className="text-xs font-mono text-muted-foreground uppercase">{r.pan}</span>
-                  <span className="text-xs tabular-nums font-medium">₹{parseFloat(r.amount).toLocaleString("en-IN")}</span>
-                  <span className="text-xs tabular-nums text-primary font-semibold">₹{parseFloat(r.tds_deducted).toLocaleString("en-IN")}</span>
-                  <span className="text-xs tabular-nums text-green-500 font-semibold">₹{parseFloat(r.tds_deposited).toLocaleString("en-IN")}</span>
+                  <span className="text-xs tabular-nums font-medium">₹{r.amount.toLocaleString("en-IN")}</span>
+                  <span className="text-xs tabular-nums text-primary font-semibold">₹{r.tds_deducted.toLocaleString("en-IN")}</span>
+                  <span className="text-xs tabular-nums text-green-500 font-semibold">₹{r.tds_deposited.toLocaleString("en-IN")}</span>
                 </motion.div>
               ))}
             </div>
-            
+
             <div className="md:hidden divide-y divide-border">
               {slice.map((r, i) => (
-                <div key={i} className="p-4 space-y-3">
+                <div key={r.id} className="p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <p className="font-semibold text-sm">{r.name || "N/A"}</p>
                     <span className="text-[10px] text-muted-foreground font-medium">SR #{(page - 1) * pageSize + i + 1}</span>
@@ -356,27 +314,27 @@ export default function Tds() {
                     </div>
                     <div>
                       <p className="text-[10px] uppercase text-muted-foreground">Date</p>
-                      <p className="text-xs font-medium">{r.date}</p>
+                      <p className="text-xs font-medium">{r.date_display || r.date}</p>
                     </div>
                   </div>
                   <div className="grid grid-cols-3 gap-2 p-3 bg-surface-2 rounded-lg border border-border">
                     <div>
                       <p className="text-[9px] uppercase text-muted-foreground">Amount</p>
-                      <p className="text-[11px] font-bold">₹{parseFloat(r.amount).toLocaleString("en-IN")}</p>
+                      <p className="text-[11px] font-bold">₹{r.amount.toLocaleString("en-IN")}</p>
                     </div>
                     <div>
                       <p className="text-[9px] uppercase text-muted-foreground text-primary">Deducted</p>
-                      <p className="text-[11px] font-bold text-primary">₹{parseFloat(r.tds_deducted).toLocaleString("en-IN")}</p>
+                      <p className="text-[11px] font-bold text-primary">₹{r.tds_deducted.toLocaleString("en-IN")}</p>
                     </div>
                     <div>
                       <p className="text-[9px] uppercase text-muted-foreground text-green-500">Deposited</p>
-                      <p className="text-[11px] font-bold text-green-500">₹{parseFloat(r.tds_deposited).toLocaleString("en-IN")}</p>
+                      <p className="text-[11px] font-bold text-green-500">₹{r.tds_deposited.toLocaleString("en-IN")}</p>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
-            <Pagination page={page} total={filtered.length} pageSize={pageSize} onChange={setPage} />
+            <Pagination page={page} total={sorted.length} pageSize={pageSize} onChange={setPage} />
           </>
         )}
       </div>
@@ -384,7 +342,7 @@ export default function Tds() {
       <ConfirmModal
         open={showExportConfirm}
         title="Confirm Excel Export"
-        description={`You are about to export ${filtered.length} records (${periodLabel}) to an Excel file with premium formatting. Would you like to proceed?`}
+        description={`Export ${sorted.length} records (${periodLabel})?`}
         confirmLabel="Export Excel"
         onConfirm={executeExport}
         onCancel={() => setShowExportConfirm(false)}

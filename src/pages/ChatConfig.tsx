@@ -27,15 +27,43 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 const FIELD_METADATA: Record<string, { label: string; hint: string }> = {
-  welcome:      { label: "Welcome message", hint: "Sent when a new chat opens." },
-  panRequest:   { label: "PAN request",     hint: "Asks the buyer to share their PAN." },
-  invalidPan:   { label: "Invalid PAN",     hint: "When the format is wrong." },
-  panFailed:    { label: "PAN verification failed", hint: "When verification fails." },
-  panVerified:  { label: "PAN verified",    hint: "After successful verification." },
-  paymentSent:  { label: "Payment sent",    hint: "Confirms the payment dispatch." },
-  reminder:     { label: "Reminder",        hint: "Friendly nudge to share PAN." },
-  finalWarning: { label: "Final warning",   hint: "Last reminder before cancel." },
-  fallback:     { label: "Default fallback", hint: "Used when nothing else matches." },
+  // Onboarding
+  welcome:               { label: "Welcome message",        hint: "Sent immediately when a new order is detected." },
+  panRequest:            { label: "PAN request",            hint: "Asks the seller to share their PAN." },
+
+  // PAN handling
+  panNotFound:           { label: "PAN not detected",       hint: "When no valid PAN is found in the seller's reply." },
+  panImageRejected:      { label: "PAN image rejected",     hint: "When the seller sends an image instead of typing." },
+  panInvalidFormat:      { label: "PAN invalid format",     hint: "When the PAN doesn't match the required format." },
+  panApiInvalid:         { label: "PAN API invalid",        hint: "When Surepass returns invalid. Placeholder: {reason}." },
+  panVerifiedTds:        { label: "PAN verified + TDS",     hint: "After verification — shows pre/post-TDS breakdown." },
+  panReminder:           { label: "PAN reminder",           hint: "Sent if seller hasn't shared PAN yet." },
+  panLastWarning:        { label: "PAN last warning",       hint: "Final warning before auto-cancel." },
+  panMaxRetries:         { label: "PAN max retries",        hint: "After too many invalid PAN attempts." },
+  panApiDown:            { label: "PAN API down",           hint: "When PAN verification system is unreachable." },
+  nameMismatch:          { label: "Name mismatch",          hint: "PAN name vs KYC/bank name doesn't match." },
+
+  // TDS
+  tdsInfo:               { label: "TDS info",               hint: "TDS credit timing info (quarter/credit month)." },
+  tdsConsent:            { label: "TDS consent request",    hint: "Asks seller to reply 'I AGREE' to TDS deduction." },
+  tdsConsentRetry:       { label: "TDS consent retry",      hint: "Sent if reply is not a valid agreement." },
+  consentReceived:       { label: "Consent received",       hint: "Acks TDS consent and starts payment flow." },
+
+  // Payment
+  paymentSent:           { label: "Payment sent",           hint: "After auto-payout. Placeholders: {method}, {utr}, {tan}." },
+  manualPaymentPending:  { label: "Manual payment pending", hint: "Phase 1 manual payout placeholder." },
+  paymentFailed:         { label: "Payment failed",         hint: "When payment processing throws an error." },
+
+  // Cancellation & completion
+  orderCancelled:        { label: "Order cancelled",        hint: "When order is auto-cancelled due to no response." },
+  orderCancelledRemote:  { label: "Order cancelled (remote)", hint: "When seller cancels from Binance side." },
+  thankYou:              { label: "Thank you",              hint: "Final message when order completes." },
+
+  // Edge cases
+  systemError:           { label: "System error",           hint: "Generic safety-net message." },
+  escalated:             { label: "Escalated",              hint: "When order is escalated for manual review." },
+  waitProcessing:        { label: "Wait processing",        hint: "Generic 'please wait' message." },
+  waitRelease:           { label: "Wait release",           hint: "After payment sent; if seller messages again. Placeholder: {method}." },
 };
 
 interface SortableItemProps {

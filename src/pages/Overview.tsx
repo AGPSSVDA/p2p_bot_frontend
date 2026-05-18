@@ -1,54 +1,65 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
-  Activity, ArrowUpRight, Bot, Coins, IndianRupee, ShieldCheck,
-  TrendingUp, XCircle, Zap, Pause, Play,
+  Activity, Bot, Coins, IndianRupee, ShieldCheck,
+  TrendingUp, XCircle, Zap, Megaphone, Wallet, ArrowUpRight,
+  CalendarDays, Receipt, ListTree,
 } from "lucide-react";
-import { ANALYTICS } from "@/data/mock";
 import { useSystem } from "@/context/SystemContext";
 import { Toggle } from "@/components/Toggle";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { AnimatedCounter } from "@/components/AnimatedCounter";
 import { CardSkeleton } from "@/components/Skeletons";
-
-import { toast } from "sonner";
+import { overviewService, OverviewKpis } from "@/services/overview.service";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface StatCard {
   label: string; value: number; prefix?: string; suffix?: string; decimals?: number;
-  icon: typeof Bot; trend?: string; tone?: "primary" | "success" | "warning" | "destructive";
+  icon: typeof Bot; trend?: string; tone?: "primary" | "success" | "warning" | "destructive" | "info";
 }
 
 export default function Overview() {
   const { botRunning, autoPayout, toggleBot, toggleAutoPayout, loading: systemLoading } = useSystem();
+  const [kpis, setKpis] = useState<OverviewKpis | null>(null);
   const [loading, setLoading] = useState(true);
   const [confirm, setConfirm] = useState<null | "bot" | "payout">(null);
 
-  useEffect(() => {
-    if (!systemLoading) {
+  const fetchKpis = async () => {
+    try {
+      const data = await overviewService.getOverview();
+      setKpis(data);
+    } catch (err: any) {
+      console.error("Failed to load overview", err);
+      toast.error(err?.response?.data?.message || "Failed to load KPIs");
+    } finally {
       setLoading(false);
     }
-  }, [systemLoading]);
-
-  const stats: StatCard[] = [
-    { label: "Orders Today",   value: ANALYTICS.ordersToday, icon: Activity, trend: "+12.4%", tone: "primary" },
-    { label: "Orders (Month)", value: ANALYTICS.ordersMonth, icon: TrendingUp, trend: "+8.1%", tone: "success" },
-    { label: "Volume (INR)",   value: ANALYTICS.volumeInr, prefix: "₹", icon: IndianRupee, trend: "+22%", tone: "primary" },
-    { label: "Crypto Bought",  value: ANALYTICS.cryptoBought, decimals: 2, suffix: " USDT", icon: Coins, trend: "+5.6%", tone: "success" },
-    { label: "Success Rate",   value: ANALYTICS.successRate, decimals: 1, suffix: "%", icon: ShieldCheck, trend: "Stable", tone: "success" },
-    { label: "Failed/Escalated", value: ANALYTICS.failedEscalated, icon: XCircle, trend: "-3", tone: "destructive" },
-  ];
-
-
-
-  const onBotConfirm = () => {
-    toggleBot();
-    setConfirm(null);
   };
-  const onPayoutConfirm = () => {
-    toggleAutoPayout();
-    setConfirm(null);
-  };
+
+  useEffect(() => {
+    fetchKpis();
+    const t = setInterval(fetchKpis, 30_000);
+    return () => clearInterval(t);
+  }, []);
+
+  const stats: StatCard[] = kpis ? [
+    { label: "Orders Today",   value: kpis.orders_today,     icon: Activity,    tone: "primary",     trend: `${kpis.volume_today.toLocaleString("en-IN")} INR today` },
+    { label: "Orders (Month)", value: kpis.orders_month,     icon: TrendingUp,  tone: "success",     trend: `₹${kpis.volume_month.toLocaleString("en-IN")} this month` },
+    { label: "Total Orders",   value: kpis.total_orders,     icon: ListTree,    tone: "info",        trend: `${kpis.completed_orders} completed` },
+    { label: "Active Now",     value: kpis.active_orders,    icon: Activity,    tone: "warning",     trend: "in-flight orders" },
+    { label: "Volume (INR)",   value: kpis.volume_inr,       prefix: "₹",       icon: IndianRupee,   tone: "primary", trend: "lifetime" },
+    { label: "Crypto Bought",  value: kpis.crypto_bought,    decimals: 4,       suffix: " USDT",     icon: Coins,     tone: "success", trend: `${kpis.crypto_today.toFixed(2)} today` },
+    { label: "Success Rate",   value: kpis.success_rate,     decimals: 1,       suffix: "%",          icon: ShieldCheck, tone: "success", trend: `${kpis.completed_orders}/${kpis.total_orders}` },
+    { label: "Failed/Escalated", value: kpis.failed_escalated, icon: XCircle,   tone: "destructive", trend: "needs attention" },
+    { label: "Total TDS",      value: kpis.total_tds,        prefix: "₹",       icon: Receipt,       tone: "primary", trend: "deducted so far" },
+    { label: "Payouts",        value: kpis.total_payouts,    icon: Wallet,      tone: "success",     trend: `₹${kpis.total_paid_out.toLocaleString("en-IN")} paid` },
+    { label: "Ads Tracked",    value: kpis.total_ads,        icon: Megaphone,   tone: "info",        trend: "from incoming orders" },
+    { label: "Volume Today",   value: kpis.volume_today,     prefix: "₹",       icon: CalendarDays,  tone: "info",    trend: "since midnight" },
+  ] : [];
+
+  const onBotConfirm = () => { toggleBot(); setConfirm(null); };
+  const onPayoutConfirm = () => { toggleAutoPayout(); setConfirm(null); };
 
   return (
     <div className="space-y-6">
@@ -59,6 +70,12 @@ export default function Overview() {
             Real-time overview of your P2P automation system.
           </p>
         </div>
+        {kpis?.bot_name && (
+          <div className="text-right">
+            <p className="text-[11px] uppercase text-muted-foreground tracking-wider">Bot</p>
+            <p className="font-semibold text-sm">{kpis.bot_name}</p>
+          </div>
+        )}
       </div>
 
       {/* System control */}
@@ -89,7 +106,9 @@ export default function Overview() {
             <Toggle disabled={systemLoading} checked={botRunning} onChange={() => setConfirm("bot")} />
           </div>
           <p className="text-xs text-muted-foreground mt-4">
-            {botRunning ? "Processing orders, replies and payouts automatically." : "Bot is idle. New orders will queue."}
+            {botRunning
+              ? "Processing orders, replies and payouts automatically."
+              : "Bot is OFF. New orders are still detected and stored, but no chat replies are sent."}
           </p>
         </motion.div>
 
@@ -115,16 +134,16 @@ export default function Overview() {
         </motion.div>
       </div>
 
-      {/* Analytics */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
-        {loading
-          ? Array.from({ length: 6 }).map((_, i) => <CardSkeleton key={i} />)
+      {/* KPI grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
+        {loading || !kpis
+          ? Array.from({ length: 12 }).map((_, i) => <CardSkeleton key={i} />)
           : stats.map((s, i) => (
             <motion.div
               key={s.label}
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.04, duration: 0.3 }}
+              transition={{ delay: i * 0.03, duration: 0.3 }}
               whileHover={{ y: -3 }}
               className="surface-card rounded-xl p-4 lg:p-5 group cursor-default"
             >
@@ -135,6 +154,7 @@ export default function Overview() {
                   s.tone === "success" && "bg-success/15 text-success",
                   s.tone === "destructive" && "bg-destructive/15 text-destructive",
                   s.tone === "warning" && "bg-warning/15 text-warning",
+                  s.tone === "info" && "bg-info/15 text-info",
                   (!s.tone || s.tone === "primary") && "bg-primary/15 text-primary",
                 )}>
                   <s.icon className="h-4 w-4" />
@@ -144,10 +164,7 @@ export default function Overview() {
                 <AnimatedCounter value={s.value} prefix={s.prefix} suffix={s.suffix} decimals={s.decimals} />
               </p>
               {s.trend && (
-                <p className={cn(
-                  "mt-1.5 text-[11px] font-semibold inline-flex items-center gap-1",
-                  s.tone === "destructive" ? "text-destructive" : "text-success"
-                )}>
+                <p className="mt-1.5 text-[11px] font-medium text-muted-foreground inline-flex items-center gap-1">
                   <ArrowUpRight className="h-3 w-3" /> {s.trend}
                 </p>
               )}
@@ -155,13 +172,32 @@ export default function Overview() {
           ))}
       </div>
 
-
+      {/* States breakdown */}
+      {kpis && Object.keys(kpis.states_breakdown).length > 0 && (
+        <div className="surface-card rounded-2xl p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <ListTree className="h-4 w-4 text-primary" />
+            <h3 className="font-semibold text-sm">Orders by state</h3>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(kpis.states_breakdown).map(([state, count]) => (
+              <span
+                key={state}
+                className="inline-flex items-center gap-2 rounded-lg bg-surface-2 px-3 py-1.5 text-[11px] font-medium border border-border"
+              >
+                <span className="uppercase tracking-wider text-muted-foreground">{state.replace(/_/g, " ")}</span>
+                <span className="font-bold text-foreground">{count}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       <ConfirmModal
         open={confirm === "bot"}
         title={botRunning ? "Stop the bot?" : "Start the bot?"}
         description={botRunning
-          ? "New incoming orders will be queued until the bot is restarted."
+          ? "Order detection keeps running, but the bot will stop replying in chat until restarted."
           : "The bot will resume processing orders, chats and payouts."}
         confirmLabel={botRunning ? "Stop bot" : "Start bot"}
         destructive={botRunning}
