@@ -8,6 +8,7 @@ export type OrderState =
   | "WAITING_TDS_CONSENT"
   | "TDS_ACCEPTED"
   | "PROCESSING_PAYMENT"
+  | "AWAITING_MANUAL_PAYMENT"
   | "PAYMENT_SENT"
   | "WAITING_FOR_RELEASE"
   | "COMPLETED"
@@ -49,6 +50,7 @@ export interface OrderRow {
   completed_at: string | null;
   cancelled_at: string | null;
   escalated_at: string | null;
+  processed_by: "BOT" | "MANUAL" | string;
   created_at: string;
   updated_at: string;
   is_live: boolean;
@@ -103,6 +105,7 @@ export interface OrderListParams {
   q?: string;
   from?: string;
   to?: string;
+  processed_by?: "BOT" | "MANUAL" | string;
 }
 
 export const ordersService = {

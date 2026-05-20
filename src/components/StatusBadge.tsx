@@ -9,6 +9,7 @@ const cfg: Record<string, { label: string; cls: string }> = {
   WAITING_TDS_CONSENT: { label: "Waiting TDS",      cls: "bg-warning/15 text-warning border-warning/30" },
   TDS_ACCEPTED:        { label: "TDS Accepted",     cls: "bg-primary/15 text-primary border-primary/30" },
   PROCESSING_PAYMENT:  { label: "Processing",       cls: "bg-info/15 text-info border-info/30" },
+  AWAITING_MANUAL_PAYMENT: { label: "Awaiting Payout", cls: "bg-warning/15 text-warning border-warning/30" },
   PAYMENT_SENT:        { label: "Payment Sent",     cls: "bg-info/15 text-info border-info/30" },
   WAITING_FOR_RELEASE: { label: "Waiting Release",  cls: "bg-info/15 text-info border-info/30" },
   COMPLETED:           { label: "Completed",        cls: "bg-success/15 text-success border-success/30" },

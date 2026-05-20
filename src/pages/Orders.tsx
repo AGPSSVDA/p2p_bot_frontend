@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Search, Filter, ListOrdered, RefreshCw, X, Eye, XOctagon, Loader2 } from "lucide-react";
+import { Search, Filter, ListOrdered, RefreshCw, X, Eye, XOctagon, Loader2, Bot, UserCog } from "lucide-react";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Pagination } from "@/components/Pagination";
 import { RowSkeleton } from "@/components/Skeletons";
@@ -18,6 +18,7 @@ const STATUS_OPTIONS: ("ALL" | OrderState)[] = [
   "WAITING_TDS_CONSENT",
   "TDS_ACCEPTED",
   "PROCESSING_PAYMENT",
+  "AWAITING_MANUAL_PAYMENT",
   "PAYMENT_SENT",
   "WAITING_FOR_RELEASE",
   "COMPLETED",
@@ -34,6 +35,7 @@ export default function Orders() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"ALL" | OrderState>("ALL");
+  const [processedBy, setProcessedBy] = useState<"ALL" | "BOT" | "MANUAL">("ALL");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
@@ -50,6 +52,7 @@ export default function Orders() {
         limit: PAGE_SIZE,
         status: status === "ALL" ? undefined : status,
         q: search || undefined,
+        processed_by: processedBy === "ALL" ? undefined : processedBy,
       });
       setOrders(data.orders);
       setTotal(data.total);
@@ -67,9 +70,9 @@ export default function Orders() {
     const t = setInterval(() => fetchOrders(false), 15_000);
     return () => clearInterval(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, status, search]);
+  }, [page, status, search, processedBy]);
 
-  useEffect(() => { setPage(1); }, [search, status]);
+  useEffect(() => { setPage(1); }, [search, status, processedBy]);
 
   const fetchDetail = async (orderNo: string) => {
     setSelected(orderNo);
@@ -122,7 +125,7 @@ export default function Orders() {
       </div>
 
       {/* Filters */}
-      <div className="surface-card rounded-2xl p-4 grid gap-3 sm:grid-cols-[1fr_auto]">
+      <div className="surface-card rounded-2xl p-4 grid gap-3 sm:grid-cols-[1fr_auto_auto]">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
@@ -143,6 +146,27 @@ export default function Orders() {
               <option key={s} value={s}>{s.replace(/_/g, " ")}</option>
             ))}
           </select>
+        </div>
+        <div className="flex gap-1 p-1 rounded-lg bg-surface-2 border border-border h-10">
+          {(["ALL", "BOT", "MANUAL"] as const).map((p) => (
+            <button
+              key={p}
+              onClick={() => setProcessedBy(p)}
+              className={cn(
+                "px-3 h-full rounded-md text-[11px] font-semibold transition flex items-center gap-1.5",
+                processedBy === p
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+              title={p === "BOT" ? "Bot-handled orders only"
+                  : p === "MANUAL" ? "Manually completed (synced) orders only"
+                  : "All orders"}
+            >
+              {p === "BOT" && <Bot className="h-3 w-3" />}
+              {p === "MANUAL" && <UserCog className="h-3 w-3" />}
+              {p}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -189,7 +213,10 @@ export default function Orders() {
               <span className="text-xs text-muted-foreground">
                 {new Date(o.created_at).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" })}
               </span>
-              <StatusBadge status={o.state} />
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <StatusBadge status={o.state} />
+                <ProcessedByBadge value={o.processed_by} />
+              </div>
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => fetchDetail(o.order_no)}
@@ -223,9 +250,12 @@ export default function Orders() {
               className="p-4 space-y-2"
               onClick={() => fetchDetail(o.order_no)}
             >
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <p className="font-semibold text-sm">{o.id}</p>
-                <StatusBadge status={o.state} />
+                <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                  <StatusBadge status={o.state} />
+                  <ProcessedByBadge value={o.processed_by} />
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div><p className="text-muted-foreground">Seller</p><p className="font-medium">{o.seller_name || o.seller_nickname || "—"}</p></div>
@@ -263,6 +293,25 @@ export default function Orders() {
         onCancel={() => setCancelTarget(null)}
       />
     </div>
+  );
+}
+
+function ProcessedByBadge({ value }: { value: string | null | undefined }) {
+  const v = (value || "BOT").toUpperCase();
+  const isBot = v === "BOT";
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wide border whitespace-nowrap",
+        isBot
+          ? "bg-primary/10 text-primary border-primary/30"
+          : "bg-warning/10 text-warning border-warning/30"
+      )}
+      title={isBot ? "Handled end-to-end by the bot" : "Order completed manually / synced from Binance"}
+    >
+      {isBot ? <Bot className="h-3 w-3" /> : <UserCog className="h-3 w-3" />}
+      {v}
+    </span>
   );
 }
 
@@ -316,8 +365,11 @@ function OrderDetailDrawer({ orderNo, detail, loading, onClose }: {
           </div>
         ) : (
           <div className="p-5 space-y-6">
-            <div className="flex items-center justify-between">
-              <StatusBadge status={o.state} />
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <StatusBadge status={o.state} />
+                <ProcessedByBadge value={o.processed_by} />
+              </div>
               {detail?.live && (
                 <span className="text-[11px] px-2 py-0.5 rounded-md bg-success/15 text-success border border-success/30">
                   Live in bot

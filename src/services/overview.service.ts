@@ -17,6 +17,12 @@ export interface OverviewKpis {
   total_payouts: number;
   total_paid_out: number;
   total_ads: number;
+  bot_processed: number;
+  manual_processed: number;
+  bot_completed: number;
+  manual_completed: number;
+  bot_failed: number;
+  manual_failed: number;
   states_breakdown: Record<string, number>;
   active_states: string[];
   failure_states: string[];

@@ -3,13 +3,14 @@ import { motion } from "framer-motion";
 import {
   Activity, Bot, Coins, IndianRupee, ShieldCheck,
   TrendingUp, XCircle, Zap, Megaphone, Wallet, ArrowUpRight,
-  CalendarDays, Receipt, ListTree,
+  CalendarDays, Receipt, ListTree, UserCog,
 } from "lucide-react";
 import { useSystem } from "@/context/SystemContext";
 import { Toggle } from "@/components/Toggle";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { AnimatedCounter } from "@/components/AnimatedCounter";
 import { CardSkeleton } from "@/components/Skeletons";
+import { BotTimersCard } from "@/components/BotTimersCard";
 import { overviewService, OverviewKpis } from "@/services/overview.service";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -17,6 +18,51 @@ import { toast } from "sonner";
 interface StatCard {
   label: string; value: number; prefix?: string; suffix?: string; decimals?: number;
   icon: typeof Bot; trend?: string; tone?: "primary" | "success" | "warning" | "destructive" | "info";
+}
+
+function ProvenanceCard({
+  tone, icon: Icon, label, total, completed, failed, description,
+}: {
+  tone: "primary" | "warning";
+  icon: typeof Bot;
+  label: string;
+  total: number;
+  completed: number;
+  failed: number;
+  description: string;
+}) {
+  const completionRate = total > 0 ? +((completed / total) * 100).toFixed(1) : 0;
+  return (
+    <motion.div whileHover={{ y: -2 }} className="surface-card rounded-2xl p-5">
+      <div className="flex items-start gap-3">
+        <div className={cn(
+          "h-11 w-11 rounded-xl flex items-center justify-center shrink-0",
+          tone === "primary" ? "bg-primary/15 text-primary" : "bg-warning/15 text-warning"
+        )}>
+          <Icon className="h-5 w-5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs uppercase tracking-wider text-muted-foreground">{label}</p>
+          <p className="text-2xl font-bold mt-0.5 tabular-nums">{total}</p>
+          <p className="text-[11px] text-muted-foreground mt-1">{description}</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-3 mt-4">
+        <div className="rounded-lg bg-surface-2 px-3 py-2">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Completed</p>
+          <p className="text-sm font-bold tabular-nums text-success mt-0.5">{completed}</p>
+        </div>
+        <div className="rounded-lg bg-surface-2 px-3 py-2">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Failed/Cancel</p>
+          <p className="text-sm font-bold tabular-nums text-destructive mt-0.5">{failed}</p>
+        </div>
+        <div className="rounded-lg bg-surface-2 px-3 py-2">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Success %</p>
+          <p className="text-sm font-bold tabular-nums mt-0.5">{completionRate}%</p>
+        </div>
+      </div>
+    </motion.div>
+  );
 }
 
 export default function Overview() {
@@ -134,6 +180,9 @@ export default function Overview() {
         </motion.div>
       </div>
 
+      {/* Bot timers (dashboard-tunable cancel + PAN deadlines) */}
+      <BotTimersCard />
+
       {/* KPI grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
         {loading || !kpis
@@ -190,6 +239,30 @@ export default function Overview() {
               </span>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Bot vs Manual provenance breakdown */}
+      {kpis && (
+        <div className="grid sm:grid-cols-2 gap-4">
+          <ProvenanceCard
+            tone="primary"
+            icon={Bot}
+            label="Handled by Bot"
+            total={kpis.bot_processed}
+            completed={kpis.bot_completed}
+            failed={kpis.bot_failed}
+            description="Orders that went through the full automated flow."
+          />
+          <ProvenanceCard
+            tone="warning"
+            icon={UserCog}
+            label="Manual / Synced"
+            total={kpis.manual_processed}
+            completed={kpis.manual_completed}
+            failed={kpis.manual_failed}
+            description="Orders completed outside the bot or backfilled from Binance."
+          />
         </div>
       )}
 

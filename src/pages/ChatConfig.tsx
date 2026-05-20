@@ -64,6 +64,12 @@ const FIELD_METADATA: Record<string, { label: string; hint: string }> = {
   escalated:             { label: "Escalated",              hint: "When order is escalated for manual review." },
   waitProcessing:        { label: "Wait processing",        hint: "Generic 'please wait' message." },
   waitRelease:           { label: "Wait release",           hint: "After payment sent; if seller messages again. Placeholder: {method}." },
+
+  // Returning-seller shortcut
+  returningSellerTdsApplied: {
+    label: "Returning seller (TDS auto-applied)",
+    hint:  "Sent when the seller already has a verified prior order. Placeholders: {previousOrderNo}, {pan}, {panName}, {preTDS}, {tds}, {postTDS}.",
+  },
 };
 
 interface SortableItemProps {
