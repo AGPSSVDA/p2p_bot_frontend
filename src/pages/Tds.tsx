@@ -68,9 +68,9 @@ export default function Tds() {
     return arr;
   }, [records, sortKey, sortDir]);
 
-  useEffect(() => { setPage(1); }, [search, period, dateRange]);
+  const [pageSize, setPageSize] = useState(25);
+  useEffect(() => { setPage(1); }, [search, period, dateRange, pageSize]);
 
-  const pageSize = 10;
   const slice = sorted.slice((page - 1) * pageSize, page * pageSize);
 
   const toggleSort = (k: SortKey) => {
@@ -334,7 +334,14 @@ export default function Tds() {
                 </div>
               ))}
             </div>
-            <Pagination page={page} total={sorted.length} pageSize={pageSize} onChange={setPage} />
+            <Pagination
+              page={page}
+              total={sorted.length}
+              pageSize={pageSize}
+              onChange={setPage}
+              onPageSizeChange={setPageSize}
+              pageSizeOptions={[25, 50, 100, 200]}
+            />
           </>
         )}
       </div>

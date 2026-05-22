@@ -27,12 +27,13 @@ const STATUS_OPTIONS: ("ALL" | OrderState)[] = [
   "CANCELLED",
 ];
 
-const PAGE_SIZE = 25;
+const DEFAULT_PAGE_SIZE = 25;
 
 export default function Orders() {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"ALL" | OrderState>("ALL");
   const [processedBy, setProcessedBy] = useState<"ALL" | "BOT" | "MANUAL">("ALL");
@@ -49,7 +50,7 @@ export default function Orders() {
     try {
       const data = await ordersService.list({
         page,
-        limit: PAGE_SIZE,
+        limit: pageSize,
         status: status === "ALL" ? undefined : status,
         q: search || undefined,
         processed_by: processedBy === "ALL" ? undefined : processedBy,
@@ -70,9 +71,11 @@ export default function Orders() {
     const t = setInterval(() => fetchOrders(false), 15_000);
     return () => clearInterval(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, status, search, processedBy]);
+  }, [page, pageSize, status, search, processedBy]);
 
-  useEffect(() => { setPage(1); }, [search, status, processedBy]);
+  // Reset to page 1 whenever any filter or page-size changes — avoids
+  // showing "page 12" of a smaller filtered result set.
+  useEffect(() => { setPage(1); }, [search, status, processedBy, pageSize]);
 
   const fetchDetail = async (orderNo: string) => {
     setSelected(orderNo);
@@ -269,7 +272,14 @@ export default function Orders() {
         </div>
 
         {total > 0 && (
-          <Pagination page={page} total={total} pageSize={PAGE_SIZE} onChange={setPage} />
+          <Pagination
+            page={page}
+            total={total}
+            pageSize={pageSize}
+            onChange={setPage}
+            onPageSizeChange={setPageSize}
+            pageSizeOptions={[25, 50, 100, 200]}
+          />
         )}
       </div>
 

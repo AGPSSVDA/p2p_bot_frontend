@@ -11,6 +11,7 @@ import { ConfirmModal } from "@/components/ConfirmModal";
 import { AnimatedCounter } from "@/components/AnimatedCounter";
 import { CardSkeleton } from "@/components/Skeletons";
 import { BotTimersCard } from "@/components/BotTimersCard";
+import { BinanceSyncCard } from "@/components/BinanceSyncCard";
 import { overviewService, OverviewKpis } from "@/services/overview.service";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -182,6 +183,9 @@ export default function Overview() {
 
       {/* Bot timers (dashboard-tunable cancel + PAN deadlines) */}
       <BotTimersCard />
+
+      {/* Binance backfill / reconciliation */}
+      <BinanceSyncCard />
 
       {/* KPI grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">

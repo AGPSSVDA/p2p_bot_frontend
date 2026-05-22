@@ -31,14 +31,6 @@ export interface OverviewKpis {
   bot_name: string | null;
 }
 
-export interface DailySeriesPoint {
-  day: string;
-  orders: number;
-  completed: number;
-  volume: number;
-  crypto: number;
-}
-
 interface ApiResponse<T> {
   success: boolean;
   message: string;
@@ -48,10 +40,6 @@ interface ApiResponse<T> {
 export const overviewService = {
   getOverview: async (): Promise<OverviewKpis> => {
     const res = await api.get<ApiResponse<OverviewKpis>>("/overview");
-    return res.data.data;
-  },
-  getDailySeries: async (days = 30): Promise<DailySeriesPoint[]> => {
-    const res = await api.get<ApiResponse<DailySeriesPoint[]>>(`/overview/daily?days=${days}`);
     return res.data.data;
   },
 };

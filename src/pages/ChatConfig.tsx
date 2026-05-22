@@ -52,6 +52,14 @@ const FIELD_METADATA: Record<string, { label: string; hint: string }> = {
   // Payment
   paymentSent:           { label: "Payment sent",           hint: "After auto-payout. Placeholders: {method}, {utr}, {tan}." },
   manualPaymentPending:  { label: "Manual payment pending", hint: "Phase 1 manual payout placeholder." },
+  manualPaymentAboveLimit: {
+    label: "Manual payment (above auto-pay limit)",
+    hint:  "Sent when amount exceeds the auto-pay cap; buyer team will pay manually. Placeholders: {amount}, {limit}, {method}.",
+  },
+  manualPaymentUpi: {
+    label: "Manual payment (UPI-only seller)",
+    hint:  "Sent when seller's only payment method is UPI (auto-payout requires bank account). Placeholders: {upi}, {postTDS}.",
+  },
   paymentFailed:         { label: "Payment failed",         hint: "When payment processing throws an error." },
 
   // Cancellation & completion

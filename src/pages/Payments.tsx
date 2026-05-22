@@ -9,12 +9,13 @@ import { RowSkeleton } from "@/components/Skeletons";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-const PAGE_SIZE = 25;
+const DEFAULT_PAGE_SIZE = 25;
 
 export default function Payments() {
   const { autoPayout } = useSystem();
   const [data, setData] = useState<PaymentsListData | null>(null);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"" | "SUCCESS" | "PENDING" | "FAILED">("");
   const [loading, setLoading] = useState(true);
@@ -28,7 +29,7 @@ export default function Payments() {
     try {
       const d = await paymentsService.list({
         page,
-        limit: PAGE_SIZE,
+        limit: pageSize,
         q: search || undefined,
         status: statusFilter || undefined,
       });
@@ -46,9 +47,9 @@ export default function Payments() {
     const t = setInterval(() => fetch(false), 20_000);
     return () => clearInterval(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, search, statusFilter]);
+  }, [page, pageSize, search, statusFilter]);
 
-  useEffect(() => { setPage(1); }, [search, statusFilter]);
+  useEffect(() => { setPage(1); }, [search, statusFilter, pageSize]);
 
   const onApprove = async () => {
     if (!confirm) return;
@@ -204,7 +205,14 @@ export default function Payments() {
           ))}
         </div>
         {data && data.total > 0 && (
-          <Pagination page={page} total={data.total} pageSize={PAGE_SIZE} onChange={setPage} />
+          <Pagination
+            page={page}
+            total={data.total}
+            pageSize={pageSize}
+            onChange={setPage}
+            onPageSizeChange={setPageSize}
+            pageSizeOptions={[25, 50, 100, 200]}
+          />
         )}
       </div>
 
