@@ -16,6 +16,14 @@ export interface PaymentRow {
   time: string;
 }
 
+export interface PaymentLimitsSnapshot {
+  imps_max_amount: number;
+  neft_max_amount: number;
+  imps_daily_cap: number;
+  imps_used_24h: number;
+  imps_remaining_24h: number;
+}
+
 export interface PaymentsListData {
   total: number;
   page: number;
@@ -29,6 +37,7 @@ export interface PaymentsListData {
     success_amount: number;
     pending_amount: number;
   };
+  paymentLimits: PaymentLimitsSnapshot;
   payments: PaymentRow[];
 }
 

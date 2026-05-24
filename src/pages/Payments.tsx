@@ -6,6 +6,7 @@ import { useSystem } from "@/context/SystemContext";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Pagination } from "@/components/Pagination";
 import { RowSkeleton } from "@/components/Skeletons";
+import { PaymentLimitsCard } from "@/components/PaymentLimitsCard";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -94,6 +95,12 @@ export default function Payments() {
           Refresh
         </button>
       </div>
+
+      {/* Payment-mode limits (IMPS / NEFT / RTGS routing) */}
+      <PaymentLimitsCard
+        usage={data?.paymentLimits}
+        onChanged={() => fetch(true)}
+      />
 
       {/* Filters */}
       <div className="surface-card rounded-2xl p-4 grid gap-3 sm:grid-cols-[1fr_auto]">

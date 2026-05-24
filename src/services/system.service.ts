@@ -4,13 +4,23 @@ export interface BotConfig {
   id: number;
   bot_status: number;
   auto_payout: number;
+  cashfree_bank_verify_enabled: number;
   bot_name: string;
   logo: string;
   auto_cancel_buffer_ms: number;
   pan_timeout_ms: number;
   pan_reminder_ms: number;
+  imps_max_amount: number;
+  neft_max_amount: number;
+  imps_daily_cap: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface PaymentLimits {
+  imps_max_amount?: number;
+  neft_max_amount?: number;
+  imps_daily_cap?: number;
 }
 
 export interface BotConfigResponse {
@@ -41,8 +51,20 @@ export const systemService = {
     return response.data;
   },
 
+  updateCashfreeBankVerify: async (id: number, status: boolean) => {
+    const response = await api.put(`/bot-config/${id}`, {
+      cashfree_bank_verify_enabled: status,
+    });
+    return response.data;
+  },
+
   updateTimers: async (id: number, timers: BotTimers) => {
     const response = await api.put(`/bot-config/${id}`, timers);
+    return response.data;
+  },
+
+  updatePaymentLimits: async (id: number, limits: PaymentLimits) => {
+    const response = await api.put(`/bot-config/${id}`, limits);
     return response.data;
   },
 };

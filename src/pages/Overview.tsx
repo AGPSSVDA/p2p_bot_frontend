@@ -67,10 +67,14 @@ function ProvenanceCard({
 }
 
 export default function Overview() {
-  const { botRunning, autoPayout, toggleBot, toggleAutoPayout, loading: systemLoading } = useSystem();
+  const {
+    botRunning, autoPayout, cashfreeBankVerify,
+    toggleBot, toggleAutoPayout, toggleCashfreeBankVerify,
+    loading: systemLoading,
+  } = useSystem();
   const [kpis, setKpis] = useState<OverviewKpis | null>(null);
   const [loading, setLoading] = useState(true);
-  const [confirm, setConfirm] = useState<null | "bot" | "payout">(null);
+  const [confirm, setConfirm] = useState<null | "bot" | "payout" | "cashfreeVerify">(null);
 
   const fetchKpis = async () => {
     try {
@@ -107,6 +111,7 @@ export default function Overview() {
 
   const onBotConfirm = () => { toggleBot(); setConfirm(null); };
   const onPayoutConfirm = () => { toggleAutoPayout(); setConfirm(null); };
+  const onCashfreeVerifyConfirm = () => { toggleCashfreeBankVerify(); setConfirm(null); };
 
   return (
     <div className="space-y-6">
@@ -126,7 +131,7 @@ export default function Overview() {
       </div>
 
       {/* System control */}
-      <div className="grid sm:grid-cols-2 gap-4">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <motion.div
           whileHover={{ y: -2 }}
           className={cn(
@@ -177,6 +182,30 @@ export default function Overview() {
           </div>
           <p className="text-xs text-muted-foreground mt-4">
             {autoPayout ? "Payouts trigger automatically after PAN verification." : "Each payout requires manual approval."}
+          </p>
+        </motion.div>
+
+        {/* Cashfree Bank Verification toggle */}
+        <motion.div whileHover={{ y: -2 }} className="surface-card rounded-2xl p-5">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              <div className={cn(
+                "h-11 w-11 rounded-xl flex items-center justify-center",
+                cashfreeBankVerify ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"
+              )}>
+                <ShieldCheck className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wider text-muted-foreground">Cashfree Bank Verify</p>
+                <p className="text-lg font-bold mt-0.5">{cashfreeBankVerify ? "Enabled" : "Disabled"}</p>
+              </div>
+            </div>
+            <Toggle disabled={systemLoading} checked={cashfreeBankVerify} onChange={() => setConfirm("cashfreeVerify")} />
+          </div>
+          <p className="text-xs text-muted-foreground mt-4">
+            {cashfreeBankVerify
+              ? "Cashfree penny-drop verifies the seller's account-holder name before PAN match."
+              : "Uses Binance-provided account-holder name for the PAN-vs-bank-name match."}
           </p>
         </motion.div>
       </div>
@@ -290,6 +319,17 @@ export default function Overview() {
         confirmLabel={autoPayout ? "Disable" : "Enable"}
         destructive={autoPayout}
         onConfirm={onPayoutConfirm}
+        onCancel={() => setConfirm(null)}
+      />
+      <ConfirmModal
+        open={confirm === "cashfreeVerify"}
+        title={cashfreeBankVerify ? "Disable Cashfree bank verify?" : "Enable Cashfree bank verify?"}
+        description={cashfreeBankVerify
+          ? "PAN-vs-bank-name match will fall back to Binance's seller-provided account-holder name."
+          : "Each PAN match will trigger a Cashfree penny-drop to fetch the true account-holder name. Cashfree's Verifications product must be active on your account (penny-drop carries a per-call fee)."}
+        confirmLabel={cashfreeBankVerify ? "Disable" : "Enable"}
+        destructive={cashfreeBankVerify}
+        onConfirm={onCashfreeVerifyConfirm}
         onCancel={() => setConfirm(null)}
       />
     </div>

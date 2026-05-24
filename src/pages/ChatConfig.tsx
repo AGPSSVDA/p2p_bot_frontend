@@ -76,7 +76,7 @@ const FIELD_METADATA: Record<string, { label: string; hint: string }> = {
   // Returning-seller shortcut
   returningSellerTdsApplied: {
     label: "Returning seller (TDS auto-applied)",
-    hint:  "Sent when the seller already has a verified prior order. Placeholders: {previousOrderNo}, {pan}, {panName}, {preTDS}, {tds}, {postTDS}.",
+    hint:  "Sent when the seller already has a verified prior order. Placeholders: {kycName}, {sellerNickname}, {previousOrderNo}, {pan}, {panName}, {preTDS}, {tds}, {postTDS}.",
   },
 };
 
