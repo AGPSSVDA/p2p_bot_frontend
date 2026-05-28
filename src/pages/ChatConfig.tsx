@@ -1,7 +1,7 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  Check, Loader2, MessageSquare, Save, Plus, Trash2, GripVertical 
+import {
+  Check, Loader2, MessageSquare, Save, Plus, Trash2, GripVertical, Braces, ChevronDown
 } from "lucide-react";
 import { 
   DndContext, 
@@ -22,7 +22,7 @@ import {
   useSortable
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { templateService, Template, TemplateMessage } from "@/services/template.service";
+import { templateService, Template, TemplateVariable } from "@/services/template.service";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -51,6 +51,7 @@ const FIELD_METADATA: Record<string, { label: string; hint: string }> = {
 
   // Payment
   paymentSent:           { label: "Payment sent",           hint: "After auto-payout. Placeholders: {method}, {utr}, {tan}." },
+  paymentProcessing:     { label: "Payment processing",     hint: "Sent while a Cashfree payout is PENDING (bank not yet confirmed). Real UTR follows in 'Payment sent'. Placeholders: {method}, {postTDS}, {tds}." },
   manualPaymentPending:  { label: "Manual payment pending", hint: "Phase 1 manual payout placeholder." },
   manualPaymentAboveLimit: {
     label: "Manual payment (above auto-pay limit)",
@@ -86,9 +87,10 @@ interface SortableItemProps {
   onUpdate: (val: string) => void;
   onDelete: () => void;
   showDragHandle: boolean;
+  onFocusField: (el: HTMLTextAreaElement) => void;
 }
 
-function SortableItem({ id, value, onUpdate, onDelete, showDragHandle }: SortableItemProps) {
+function SortableItem({ id, value, onUpdate, onDelete, showDragHandle, onFocusField }: SortableItemProps) {
   const {
     attributes,
     listeners,
@@ -139,6 +141,7 @@ function SortableItem({ id, value, onUpdate, onDelete, showDragHandle }: Sortabl
           ref={textareaRef}
           value={value}
           onChange={(e) => onUpdate(e.target.value)}
+          onFocus={() => textareaRef.current && onFocusField(textareaRef.current)}
           rows={1}
           className="w-full rounded-lg bg-surface-2 border border-border px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30 transition resize-none pr-9 overflow-hidden"
           placeholder="Enter message..."
@@ -163,6 +166,14 @@ export default function ChatConfig() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  // Global variable palette
+  const [variables, setVariables] = useState<TemplateVariable[]>([]);
+  const [paletteOpen, setPaletteOpen] = useState(true);
+  // Tracks the last-focused message textarea so a clicked variable chip knows
+  // where to insert. Set on focus, NOT cleared on blur (clicking a chip blurs
+  // the textarea — we still want to target it). A ref so it never re-renders.
+  const activeFieldRef = useRef<{ el: HTMLTextAreaElement; key: string; index: number } | null>(null);
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 10 } }),
@@ -191,12 +202,45 @@ export default function ChatConfig() {
     }
   };
 
+  const fetchVariables = async () => {
+    try {
+      const res = await templateService.getVariables();
+      if (res.success && res.data) setVariables(res.data);
+    } catch (error) {
+      console.error("Failed to fetch template variables:", error);
+    }
+  };
+
   useEffect(() => {
     fetchTemplates();
+    fetchVariables();
   }, []);
 
   const markDirty = (key: string) => {
     setDirtyKeys(prev => new Set(prev).add(key));
+  };
+
+  // Insert a variable token into the last-focused message field at the cursor.
+  // Falls back to clipboard copy if no field has been focused yet.
+  const insertVariable = (token: string) => {
+    const active = activeFieldRef.current;
+    if (!active || !tpl[active.key]?.messages[active.index]) {
+      navigator.clipboard?.writeText(token).catch(() => {});
+      toast.info(`Copied ${token} — click a message field, then click the variable to insert`);
+      return;
+    }
+    const { el, key, index } = active;
+    const start = el.selectionStart ?? el.value.length;
+    const end = el.selectionEnd ?? el.value.length;
+    const current = tpl[key].messages[index].message_text ?? "";
+    const next = current.slice(0, start) + token + current.slice(end);
+    updateMessage(key, index, next);
+    // Restore focus + place cursor right after the inserted token
+    requestAnimationFrame(() => {
+      el.focus();
+      const pos = start + token.length;
+      try { el.setSelectionRange(pos, pos); } catch { /* noop */ }
+    });
   };
 
   const onSave = async () => {
@@ -349,6 +393,57 @@ export default function ChatConfig() {
         </div>
       </div>
 
+      {/* ── Global variable palette ─────────────────────────────────────── */}
+      {variables.length > 0 && (
+        <div className="surface-card rounded-2xl border border-border overflow-hidden">
+          <button
+            onClick={() => setPaletteOpen(o => !o)}
+            className="w-full flex items-center justify-between px-5 py-3 hover:bg-surface-2/50 transition"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-lg bg-primary/15 text-primary flex items-center justify-center">
+                <Braces className="h-4 w-4" />
+              </div>
+              <div className="text-left">
+                <p className="font-semibold text-sm">Variables</p>
+                <p className="text-[11px] text-muted-foreground">
+                  Click a field below, then click a variable to insert it. Works in any template.
+                </p>
+              </div>
+            </div>
+            <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", paletteOpen && "rotate-180")} />
+          </button>
+
+          <AnimatePresence initial={false}>
+            {paletteOpen && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
+              >
+                <div className="px-5 pb-4 pt-1 flex flex-wrap gap-2">
+                  {variables.map((v) => (
+                    <button
+                      key={v.name}
+                      // preventDefault on mousedown keeps the textarea focused +
+                      // its cursor/selection intact so we insert at the caret.
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => insertVariable(v.token)}
+                      title={`${v.description}  •  e.g. ${v.example}`}
+                      className="group inline-flex items-center gap-1 rounded-md bg-surface-2 border border-border px-2 py-1 text-[11px] font-mono text-primary hover:border-primary/50 hover:bg-primary/10 transition"
+                    >
+                      {v.token}
+                    </button>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
+
       <div className="grid gap-6 md:grid-cols-2">
         {Object.keys(tpl).map((key, i) => {
           const item = tpl[key];
@@ -403,6 +498,7 @@ export default function ChatConfig() {
                           onUpdate={(val) => updateMessage(key, idx, val)}
                           onDelete={() => deleteMessage(key, idx)}
                           showDragHandle={item.messages.length > 1}
+                          onFocusField={(el) => { activeFieldRef.current = { el, key, index: idx }; }}
                         />
                       ))}
                     </div>
