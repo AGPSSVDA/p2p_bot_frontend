@@ -18,7 +18,13 @@ export type OrderState =
 
 export interface OrderRow {
   id: string;
+  // Binance order number (mirrors order_no, kept for back-compat)
+  order_id: string;
   order_no: string;
+  // Canonical "real order date" derived server-side from the best available
+  // Binance timestamp — prefer this for display over created_at /
+  // completed_at / cancelled_at (which can be sync-time fakes for old rows).
+  order_date: string | null;
   adv_no: string | null;
   asset: string | null;
   fiat: string | null;

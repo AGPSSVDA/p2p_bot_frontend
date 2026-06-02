@@ -184,7 +184,7 @@ export default function Orders() {
             <span>Amount</span>
             <span>Crypto</span>
             <span>Method</span>
-            <span>Created</span>
+            <span>Order Date</span>
             <span>Status</span>
             <span />
           </div>
@@ -214,7 +214,7 @@ export default function Orders() {
               <span className="text-sm tabular-nums">{o.crypto_amount} {o.asset || ""}</span>
               <span className="text-sm">{o.payment_method || "—"}</span>
               <span className="text-xs text-muted-foreground">
-                {new Date(o.created_at).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" })}
+                {new Date(o.order_date || o.created_at).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" })}
               </span>
               <div className="flex items-center gap-1.5 flex-wrap">
                 <StatusBadge status={o.state} />
@@ -266,7 +266,7 @@ export default function Orders() {
                 <div><p className="text-muted-foreground">INR</p><p className="font-semibold tabular-nums">₹{o.amount.toLocaleString("en-IN")}</p></div>
                 <div><p className="text-muted-foreground">{o.asset || "—"}</p><p className="tabular-nums">{o.crypto_amount}</p></div>
               </div>
-              <p className="text-[11px] text-muted-foreground">{new Date(o.created_at).toLocaleString("en-IN")}</p>
+              <p className="text-[11px] text-muted-foreground">{new Date(o.order_date || o.created_at).toLocaleString("en-IN")}</p>
             </motion.div>
           ))}
         </div>
@@ -393,10 +393,14 @@ function OrderDetailDrawer({ orderNo, detail, loading, onClose }: {
               <Row label="Asset / Fiat" value={`${o.asset || "—"} / ${o.fiat || "—"}`} />
               <Row label="Amount" value={`₹${o.amount.toLocaleString("en-IN")}`} />
               <Row label="Crypto" value={`${o.crypto_amount} ${o.asset || ""}`} />
-              <Row label="Created" value={new Date(o.created_at).toLocaleString("en-IN")} />
-              <Row label="Updated" value={new Date(o.updated_at).toLocaleString("en-IN")} />
+              <Row
+                label="Order Date"
+                value={new Date(o.order_date || o.created_at).toLocaleString("en-IN")}
+              />
               <Row label="Confirm Pay End" value={o.confirm_pay_end_time ? new Date(o.confirm_pay_end_time).toLocaleString("en-IN") : "—"} />
               <Row label="Notify Pay End" value={o.notify_pay_end_time ? new Date(o.notify_pay_end_time).toLocaleString("en-IN") : "—"} />
+              <Row label="DB Inserted" value={new Date(o.created_at).toLocaleString("en-IN")} />
+              <Row label="DB Updated" value={new Date(o.updated_at).toLocaleString("en-IN")} />
             </Section>
 
             <Section title="Seller">

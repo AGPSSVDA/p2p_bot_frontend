@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Download, FileBarChart2, Search, ArrowUpDown, Loader2, Calendar as CalendarIcon, ArrowRight, X } from "lucide-react";
-import { tdsService, TdsRecord, TdsPeriod } from "@/services/tds.service";
+import { tdsService, TdsRecord, TdsMonth } from "@/services/tds.service";
 import { Pagination } from "@/components/Pagination";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { toast } from "sonner";
@@ -15,13 +15,26 @@ import { DateRange } from "react-day-picker";
 
 type SortKey = "date" | "amount" | "tds_deducted" | "tds_deposited";
 
+// Month labels for the filter buttons + the export filename. Order matches
+// `TdsMonth` values 1..12 (index 0 = Jan).
+const MONTH_LABELS = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+] as const;
+
 export default function Tds() {
   const [records, setRecords] = useState<TdsRecord[]>([]);
   const [summary, setSummary] = useState<{ records: number; payout_volume: number; total_tds: number }>({
     records: 0, payout_volume: 0, total_tds: 0,
   });
   const [search, setSearch] = useState("");
-  const [period, setPeriod] = useState<TdsPeriod>("ALL");
+  // Month-of-current-year filter. "ALL" shows everything, 1-12 narrows to
+  // that calendar month of the current year. Replaces the old quarterly/
+  // yearly buttons per the spec.
+  const [monthFilter, setMonthFilter] = useState<TdsMonth>("ALL");
+  // Independent custom range — when the user opens the calendar picker we
+  // switch into custom mode, which overrides monthFilter.
+  const [useCustomRange, setUseCustomRange] = useState(false);
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: subDays(new Date(), 7),
     to: new Date(),
@@ -37,10 +50,13 @@ export default function Tds() {
   const fetchRecords = async () => {
     try {
       setLoading(true);
-      const params: any = { period };
-      if (period === "CUSTOM" && dateRange?.from && dateRange?.to) {
-        params.from = format(dateRange.from, "yyyy-MM-dd");
-        params.to = format(dateRange.to, "yyyy-MM-dd 23:59:59");
+      const params: any = {};
+      if (useCustomRange && dateRange?.from && dateRange?.to) {
+        params.period = "CUSTOM";
+        params.from   = format(dateRange.from, "yyyy-MM-dd");
+        params.to     = format(dateRange.to, "yyyy-MM-dd 23:59:59");
+      } else if (monthFilter !== "ALL") {
+        params.month = monthFilter;
       }
       if (search) params.q = search;
       const data = await tdsService.list(params);
@@ -56,7 +72,7 @@ export default function Tds() {
   useEffect(() => {
     fetchRecords();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [period, dateRange?.from, dateRange?.to, search]);
+  }, [monthFilter, useCustomRange, dateRange?.from, dateRange?.to, search]);
 
   const sorted = useMemo(() => {
     const arr = [...records];
@@ -69,7 +85,7 @@ export default function Tds() {
   }, [records, sortKey, sortDir]);
 
   const [pageSize, setPageSize] = useState(25);
-  useEffect(() => { setPage(1); }, [search, period, dateRange, pageSize]);
+  useEffect(() => { setPage(1); }, [search, monthFilter, useCustomRange, dateRange, pageSize]);
 
   const slice = sorted.slice((page - 1) * pageSize, page * pageSize);
 
@@ -130,19 +146,20 @@ export default function Tds() {
     });
 
     const buffer = await workbook.xlsx.writeBuffer();
-    const rangeStr = period === "CUSTOM" && dateRange?.from && dateRange?.to
+    const rangeStr = useCustomRange && dateRange?.from && dateRange?.to
       ? `${format(dateRange.from, "dd-MMM")}_to_${format(dateRange.to, "dd-MMM")}`
-      : period;
+      : monthFilter === "ALL"
+        ? "ALL"
+        : MONTH_LABELS[(monthFilter as number) - 1];
     saveAs(new Blob([buffer]), `TDS_Report_${rangeStr}_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
     setShowExportConfirm(false);
     toast.success(`Exported ${sorted.length} records!`);
   };
 
-  const periodLabel = period === "ALL" ? "All Time"
-    : period === "MONTH" ? "Monthly"
-    : period === "QUARTER" ? "Quarterly"
-    : period === "YEAR" ? "Yearly"
-    : "Custom Range";
+  const periodLabel =
+    useCustomRange ? "Custom Range" :
+    monthFilter === "ALL" ? "All Time" :
+    `${MONTH_LABELS[(monthFilter as number) - 1]} ${new Date().getFullYear()}`;
 
   return (
     <div className="space-y-6">
@@ -176,29 +193,51 @@ export default function Tds() {
         </div>
 
         <div className="flex flex-col sm:flex-row items-center gap-2 w-full md:w-auto">
-          <div className="flex gap-1 p-1 rounded-lg bg-surface-2 border border-border w-full sm:w-auto">
-            {(["ALL", "MONTH", "QUARTER", "YEAR"] as TdsPeriod[]).map((p) => (
-              <button key={p} onClick={() => setPeriod(p)}
-                className={cn(
-                  "flex-1 sm:flex-none px-3 h-8 rounded-md text-[11px] font-semibold transition whitespace-nowrap",
-                  period === p ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-                )}>
-                {p === "ALL" ? "All time" : p === "MONTH" ? "Monthly" : p === "QUARTER" ? "Quarterly" : "Yearly"}
-              </button>
-            ))}
+          {/* Month filter bar: All + Jan…Dec. Scrolls horizontally on small
+              screens. Clicking any pill also exits custom-range mode. */}
+          <div className="flex gap-1 p-1 rounded-lg bg-surface-2 border border-border w-full sm:w-auto overflow-x-auto no-scrollbar">
+            <button
+              onClick={() => { setMonthFilter("ALL"); setUseCustomRange(false); }}
+              className={cn(
+                "shrink-0 px-3 h-8 rounded-md text-[11px] font-semibold transition whitespace-nowrap",
+                !useCustomRange && monthFilter === "ALL"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              All
+            </button>
+            {MONTH_LABELS.map((label, idx) => {
+              const m = (idx + 1) as TdsMonth;
+              const active = !useCustomRange && monthFilter === m;
+              return (
+                <button
+                  key={label}
+                  onClick={() => { setMonthFilter(m); setUseCustomRange(false); }}
+                  className={cn(
+                    "shrink-0 px-3 h-8 rounded-md text-[11px] font-semibold transition whitespace-nowrap",
+                    active
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {label}
+                </button>
+              );
+            })}
           </div>
 
           <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
             <PopoverTrigger asChild>
               <button
-                onClick={() => setPeriod("CUSTOM")}
+                onClick={() => setUseCustomRange(true)}
                 className={cn(
                   "h-10 px-3 rounded-lg border border-border bg-surface-2 flex items-center justify-center gap-2 text-[11px] font-semibold transition w-full sm:w-auto sm:min-w-[140px]",
-                  period === "CUSTOM" ? "border-primary text-primary" : "text-muted-foreground hover:text-foreground"
+                  useCustomRange ? "border-primary text-primary" : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 <CalendarIcon className="h-3.5 w-3.5" />
-                {period === "CUSTOM" && dateRange?.from ? (
+                {useCustomRange && dateRange?.from ? (
                   dateRange.to ? (
                     <>{format(dateRange.from, "MMM dd")} - {format(dateRange.to, "MMM dd")}</>
                   ) : (
@@ -243,7 +282,7 @@ export default function Tds() {
                   />
                 </div>
                 <div className="p-4 bg-surface-2 border-t border-border flex justify-end gap-2">
-                  <button onClick={() => { setDateRange(undefined); setPeriod("ALL"); setIsCalendarOpen(false); }}
+                  <button onClick={() => { setDateRange(undefined); setUseCustomRange(false); setMonthFilter("ALL"); setIsCalendarOpen(false); }}
                     className="px-3 h-8 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground transition">
                     Reset
                   </button>

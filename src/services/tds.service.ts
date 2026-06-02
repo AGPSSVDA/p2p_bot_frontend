@@ -25,13 +25,20 @@ interface ApiResponse<T> {
   data: T;
 }
 
-export type TdsPeriod = "ALL" | "MONTH" | "QUARTER" | "YEAR" | "CUSTOM";
+// Date filter modes. QUARTER and YEAR were removed — the month filter below
+// covers the same intent at finer granularity (clickable Jan…Dec buttons).
+export type TdsPeriod = "ALL" | "CUSTOM";
+
+// Month-of-current-year filter. "ALL" or undefined → no month restriction.
+// 1..12 → that calendar month of the current year (e.g. 1 = January).
+export type TdsMonth = "ALL" | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
 
 export interface TdsListParams {
   period?: TdsPeriod;
   from?: string;
   to?: string;
   q?: string;
+  month?: TdsMonth;
 }
 
 export const tdsService = {
