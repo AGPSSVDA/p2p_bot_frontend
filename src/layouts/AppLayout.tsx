@@ -84,7 +84,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
             </div>
             {!collapsed && (
               <div className="min-w-0">
-                <p className="text-sm font-bold leading-none">P2P Bot</p>
+                <p className="text-sm font-bold leading-none">AGPSS Bot</p>
                 <p className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider">Automation</p>
               </div>
             )}
@@ -175,7 +175,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
             <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-primary-glow flex items-center justify-center">
               <Bot className="h-4 w-4 text-primary-foreground" />
             </div>
-            <p className="font-bold text-sm">P2P Bot</p>
+            <p className="font-bold text-sm">AGPSS Bot</p>
           </div>
           <div className="flex items-center gap-2">
             <span className={cn(
