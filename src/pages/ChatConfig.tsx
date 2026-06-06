@@ -42,6 +42,10 @@ const FIELD_METADATA: Record<string, { label: string; hint: string }> = {
   panMaxRetries:         { label: "PAN max retries",        hint: "After too many invalid PAN attempts." },
   panApiDown:            { label: "PAN API down",           hint: "When PAN verification system is unreachable." },
   nameMismatch:          { label: "Name mismatch",          hint: "PAN name vs KYC/bank name doesn't match." },
+  bankAccountRequest: {
+    label: "Bank account resubmit request",
+    hint:  "Sent when KYC ↔ Bank Holder mismatches but PAN ↔ KYC matches. Asks the seller for correct bank account number + IFSC. Format: 'Account Number - 1234567890' then 'ifsc - ABCD0001234'. Max 2 retries (env MAX_BANK_RETRIES). Placeholder: {kycName}.",
+  },
 
   // TDS
   tdsInfo:               { label: "TDS info",               hint: "TDS credit timing info (quarter/credit month)." },
