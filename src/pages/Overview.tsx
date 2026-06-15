@@ -68,13 +68,14 @@ function ProvenanceCard({
 
 export default function Overview() {
   const {
-    botRunning, autoPayout, cashfreeBankVerify,
-    toggleBot, toggleAutoPayout, toggleCashfreeBankVerify,
+    botRunning, autoPayout, bankVerify,
+    toggleBot, toggleAutoPayout, toggleBankVerify,
+    paymentProvider, updatePaymentProvider,
     loading: systemLoading,
   } = useSystem();
   const [kpis, setKpis] = useState<OverviewKpis | null>(null);
   const [loading, setLoading] = useState(true);
-  const [confirm, setConfirm] = useState<null | "bot" | "payout" | "cashfreeVerify">(null);
+  const [confirm, setConfirm] = useState<null | "bot" | "payout" | "bankVerify">(null);
 
   const fetchKpis = async () => {
     try {
@@ -111,7 +112,7 @@ export default function Overview() {
 
   const onBotConfirm = () => { toggleBot(); setConfirm(null); };
   const onPayoutConfirm = () => { toggleAutoPayout(); setConfirm(null); };
-  const onCashfreeVerifyConfirm = () => { toggleCashfreeBankVerify(); setConfirm(null); };
+  const onBankVerifyConfirm = () => { toggleBankVerify(); setConfirm(null); };
 
   return (
     <div className="space-y-6">
@@ -185,30 +186,65 @@ export default function Overview() {
           </p>
         </motion.div>
 
-        {/* Cashfree Bank Verification toggle */}
+        {/* Bank Verification toggle (Surepass) */}
         <motion.div whileHover={{ y: -2 }} className="surface-card rounded-2xl p-5">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
               <div className={cn(
                 "h-11 w-11 rounded-xl flex items-center justify-center",
-                cashfreeBankVerify ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"
+                bankVerify ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"
               )}>
                 <ShieldCheck className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xs uppercase tracking-wider text-muted-foreground">Cashfree Bank Verify</p>
-                <p className="text-lg font-bold mt-0.5">{cashfreeBankVerify ? "Enabled" : "Disabled"}</p>
+                <p className="text-xs uppercase tracking-wider text-muted-foreground">Bank Verify</p>
+                <p className="text-lg font-bold mt-0.5">{bankVerify ? "Enabled" : "Disabled"}</p>
               </div>
             </div>
-            <Toggle disabled={systemLoading} checked={cashfreeBankVerify} onChange={() => setConfirm("cashfreeVerify")} />
+            <Toggle disabled={systemLoading} checked={bankVerify} onChange={() => setConfirm("bankVerify")} />
           </div>
           <p className="text-xs text-muted-foreground mt-4">
-            {cashfreeBankVerify
-              ? "Cashfree penny-drop verifies the seller's account-holder name before PAN match."
+            {bankVerify
+              ? "Surepass verifies the seller's account-holder name before PAN match."
               : "Uses Binance-provided account-holder name for the PAN-vs-bank-name match."}
           </p>
         </motion.div>
       </div>
+
+      {/* Active Payment Provider — admin picks which payout gateway runs */}
+      <motion.div whileHover={{ y: -2 }} className="surface-card rounded-2xl p-5">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="h-11 w-11 rounded-xl flex items-center justify-center bg-info/15 text-info shrink-0">
+              <Wallet className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs uppercase tracking-wider text-muted-foreground">Active Payment Provider</p>
+              <p className="text-lg font-bold mt-0.5">
+                {paymentProvider === "razorpay" ? "RazorpayX" : "Paywize"}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-muted-foreground" htmlFor="provider-select">Use</label>
+            <select
+              id="provider-select"
+              disabled={systemLoading}
+              value={paymentProvider}
+              onChange={(e) => updatePaymentProvider(e.target.value as "razorpay" | "paywize")}
+              className="rounded-lg bg-surface-2 border border-border px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="razorpay">RazorpayX</option>
+              <option value="paywize">Paywize</option>
+            </select>
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground mt-4">
+          All auto-payouts go through this provider until you switch. The change takes
+          effect on the very next order — no restart required. Configure both sets of
+          credentials in the .env so you can flip between them at will.
+        </p>
+      </motion.div>
 
       {/* Bot timers (dashboard-tunable cancel + PAN deadlines) */}
       <BotTimersCard />
@@ -322,14 +358,14 @@ export default function Overview() {
         onCancel={() => setConfirm(null)}
       />
       <ConfirmModal
-        open={confirm === "cashfreeVerify"}
-        title={cashfreeBankVerify ? "Disable Cashfree bank verify?" : "Enable Cashfree bank verify?"}
-        description={cashfreeBankVerify
+        open={confirm === "bankVerify"}
+        title={bankVerify ? "Disable bank verify?" : "Enable bank verify?"}
+        description={bankVerify
           ? "PAN-vs-bank-name match will fall back to Binance's seller-provided account-holder name."
-          : "Each PAN match will trigger a Cashfree penny-drop to fetch the true account-holder name. Cashfree's Verifications product must be active on your account (penny-drop carries a per-call fee)."}
-        confirmLabel={cashfreeBankVerify ? "Disable" : "Enable"}
-        destructive={cashfreeBankVerify}
-        onConfirm={onCashfreeVerifyConfirm}
+          : "Each PAN match will trigger a Surepass penny-drop to fetch the true account-holder name. (Surepass charges per call.)"}
+        confirmLabel={bankVerify ? "Disable" : "Enable"}
+        destructive={bankVerify}
+        onConfirm={onBankVerifyConfirm}
         onCancel={() => setConfirm(null)}
       />
     </div>

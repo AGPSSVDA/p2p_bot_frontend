@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from "react";
-import { systemService, BotTimers, PaymentLimits } from "@/services/system.service";
+import { systemService, BotTimers, PaymentLimits, PaymentProvider } from "@/services/system.service";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 
@@ -8,8 +8,10 @@ interface SystemCtx {
   toggleBot: () => void;
   autoPayout: boolean;
   toggleAutoPayout: () => void;
-  cashfreeBankVerify: boolean;
-  toggleCashfreeBankVerify: () => void;
+  bankVerify: boolean;
+  toggleBankVerify: () => void;
+  paymentProvider: PaymentProvider;
+  updatePaymentProvider: (provider: PaymentProvider) => Promise<boolean>;
   autoCancelBufferMs: number;
   panTimeoutMs: number;
   panReminderMs: number;
@@ -26,7 +28,8 @@ const Ctx = createContext<SystemCtx | null>(null);
 export function SystemProvider({ children }: { children: ReactNode }) {
   const [botRunning, setBotRunning] = useState(false);
   const [autoPayout, setAutoPayout] = useState(false);
-  const [cashfreeBankVerify, setCashfreeBankVerify] = useState(false);
+  const [bankVerify, setBankVerify] = useState(false);
+  const [paymentProvider, setPaymentProvider] = useState<PaymentProvider>("razorpay");
   const [botId, setBotId] = useState<number | null>(null);
   const [autoCancelBufferMs, setAutoCancelBufferMs] = useState(60_000);
   const [panTimeoutMs, setPanTimeoutMs] = useState(600_000);
@@ -44,7 +47,10 @@ export function SystemProvider({ children }: { children: ReactNode }) {
         setBotId(res.data.id);
         setBotRunning(res.data.bot_status === 1);
         setAutoPayout(res.data.auto_payout === 1);
-        setCashfreeBankVerify(res.data.cashfree_bank_verify_enabled === 1);
+        setBankVerify(res.data.bank_verify_enabled === 1);
+        if (res.data.payment_provider === "razorpay" || res.data.payment_provider === "paywize") {
+          setPaymentProvider(res.data.payment_provider);
+        }
         if (typeof res.data.auto_cancel_buffer_ms === "number") {
           setAutoCancelBufferMs(res.data.auto_cancel_buffer_ms);
         }
@@ -105,20 +111,39 @@ export function SystemProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const toggleCashfreeBankVerify = async () => {
+  const toggleBankVerify = async () => {
     if (botId === null) return;
-    const nextStatus = !cashfreeBankVerify;
-    setCashfreeBankVerify(nextStatus);
+    const nextStatus = !bankVerify;
+    setBankVerify(nextStatus);
     try {
-      await systemService.updateCashfreeBankVerify(botId, nextStatus);
+      await systemService.updateBankVerify(botId, nextStatus);
       toast.success(
         nextStatus
-          ? "Cashfree bank verification ON — penny-drop used for account-holder name"
-          : "Cashfree bank verification OFF — using Binance-provided name"
+          ? "Bank verification ON — Surepass used for account-holder name"
+          : "Bank verification OFF — using Binance-provided name"
       );
     } catch (error) {
-      setCashfreeBankVerify(!nextStatus);
-      toast.error("Failed to update Cashfree bank verification");
+      setBankVerify(!nextStatus);
+      toast.error("Failed to update bank verification");
+    }
+  };
+
+  const updatePaymentProvider = async (provider: PaymentProvider): Promise<boolean> => {
+    if (botId === null) return false;
+    const previous = paymentProvider;
+    setPaymentProvider(provider);
+    try {
+      await systemService.updatePaymentProvider(botId, provider);
+      toast.success(
+        provider === "razorpay"
+          ? "Active payment provider: RazorpayX"
+          : "Active payment provider: Paywize"
+      );
+      return true;
+    } catch (error) {
+      setPaymentProvider(previous);
+      toast.error("Failed to update payment provider");
+      return false;
     }
   };
 
@@ -171,8 +196,10 @@ export function SystemProvider({ children }: { children: ReactNode }) {
         autoPayout,
         toggleBot,
         toggleAutoPayout,
-        cashfreeBankVerify,
-        toggleCashfreeBankVerify,
+        bankVerify,
+        toggleBankVerify,
+        paymentProvider,
+        updatePaymentProvider,
         autoCancelBufferMs,
         panTimeoutMs,
         panReminderMs,

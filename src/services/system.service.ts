@@ -1,10 +1,13 @@
 import api from "@/lib/axios";
 
+export type PaymentProvider = "razorpay" | "paywize";
+
 export interface BotConfig {
   id: number;
   bot_status: number;
   auto_payout: number;
-  cashfree_bank_verify_enabled: number;
+  bank_verify_enabled: number;
+  payment_provider: PaymentProvider;
   bot_name: string;
   logo: string;
   auto_cancel_buffer_ms: number;
@@ -51,9 +54,16 @@ export const systemService = {
     return response.data;
   },
 
-  updateCashfreeBankVerify: async (id: number, status: boolean) => {
+  updateBankVerify: async (id: number, status: boolean) => {
     const response = await api.put(`/bot-config/${id}`, {
-      cashfree_bank_verify_enabled: status,
+      bank_verify_enabled: status,
+    });
+    return response.data;
+  },
+
+  updatePaymentProvider: async (id: number, provider: PaymentProvider) => {
+    const response = await api.put(`/bot-config/${id}`, {
+      payment_provider: provider,
     });
     return response.data;
   },
