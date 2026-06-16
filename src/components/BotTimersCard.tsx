@@ -84,7 +84,7 @@ export function BotTimersCard() {
           unit="minutes"
           value={cancelBufferMin}
           onChange={setCancelBufferMin}
-          hint="Cancel order this many minutes BEFORE Binance's deadline. 0 = disabled."
+          hint="Cancel order this many minutes BEFORE Binance's deadline. 0 = MASTER OFF — disables all bot-initiated auto-cancel (deadline AND PAN timeout)."
         />
         <Field
           label="PAN timeout"
