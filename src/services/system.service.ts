@@ -16,6 +16,8 @@ export interface BotConfig {
   imps_max_amount: number;
   neft_max_amount: number;
   imps_daily_cap: number;
+  auto_convert_enabled: number;
+  convert_target_asset: string;
   created_at: string;
   updated_at: string;
 }
@@ -75,6 +77,20 @@ export const systemService = {
 
   updatePaymentLimits: async (id: number, limits: PaymentLimits) => {
     const response = await api.put(`/bot-config/${id}`, limits);
+    return response.data;
+  },
+
+  updateAutoConvert: async (id: number, enabled: boolean) => {
+    const response = await api.put(`/bot-config/${id}`, {
+      auto_convert_enabled: enabled,
+    });
+    return response.data;
+  },
+
+  updateConvertTarget: async (id: number, symbol: string) => {
+    const response = await api.put(`/bot-config/${id}`, {
+      convert_target_asset: symbol,
+    });
     return response.data;
   },
 };

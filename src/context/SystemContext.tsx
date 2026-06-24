@@ -20,6 +20,10 @@ interface SystemCtx {
   neftMaxAmount: number;
   impsDailyCap: number;
   updatePaymentLimits: (limits: PaymentLimits) => Promise<boolean>;
+  autoConvertEnabled: boolean;
+  convertTargetAsset: string;
+  toggleAutoConvert: () => Promise<boolean>;
+  setConvertTarget: (symbol: string) => Promise<boolean>;
   loading: boolean;
 }
 
@@ -37,6 +41,8 @@ export function SystemProvider({ children }: { children: ReactNode }) {
   const [impsMaxAmount, setImpsMaxAmount] = useState(100_000);
   const [neftMaxAmount, setNeftMaxAmount] = useState(200_000);
   const [impsDailyCap, setImpsDailyCap] = useState(500_000);
+  const [autoConvertEnabled, setAutoConvertEnabled] = useState(false);
+  const [convertTargetAsset, setConvertTargetAsset] = useState("USDT");
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
 
@@ -68,6 +74,10 @@ export function SystemProvider({ children }: { children: ReactNode }) {
         }
         if (typeof res.data.imps_daily_cap === "number") {
           setImpsDailyCap(res.data.imps_daily_cap);
+        }
+        setAutoConvertEnabled(res.data.auto_convert_enabled === 1);
+        if (typeof res.data.convert_target_asset === "string" && res.data.convert_target_asset) {
+          setConvertTargetAsset(res.data.convert_target_asset);
         }
       }
     } catch (error) {
@@ -167,6 +177,40 @@ export function SystemProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const toggleAutoConvert = async (): Promise<boolean> => {
+    if (botId === null) return false;
+    const next = !autoConvertEnabled;
+    setAutoConvertEnabled(next);
+    try {
+      await systemService.updateAutoConvert(botId, next);
+      toast.success(next ? "Auto-convert enabled" : "Auto-convert disabled");
+      return true;
+    } catch (error) {
+      setAutoConvertEnabled(!next);
+      toast.error("Failed to update auto-convert");
+      return false;
+    }
+  };
+
+  const setConvertTarget = async (symbol: string): Promise<boolean> => {
+    if (botId === null) return false;
+    const previous = convertTargetAsset;
+    const sym = (symbol || "").toUpperCase();
+    setConvertTargetAsset(sym);
+    try {
+      await systemService.updateConvertTarget(botId, sym);
+      toast.success(`Convert target set to ${sym}`);
+      // Re-fetch in case the backend silently rejected the symbol (not in
+      // the convert_assets whitelist).
+      await fetchConfig();
+      return true;
+    } catch (error) {
+      setConvertTargetAsset(previous);
+      toast.error("Failed to update convert target");
+      return false;
+    }
+  };
+
   const updateTimers = async (timers: BotTimers): Promise<boolean> => {
     if (botId === null) return false;
     // Optimistic update
@@ -208,6 +252,10 @@ export function SystemProvider({ children }: { children: ReactNode }) {
         neftMaxAmount,
         impsDailyCap,
         updatePaymentLimits,
+        autoConvertEnabled,
+        convertTargetAsset,
+        toggleAutoConvert,
+        setConvertTarget,
         loading,
       }}
     >

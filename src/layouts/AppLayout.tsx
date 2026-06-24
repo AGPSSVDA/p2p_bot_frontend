@@ -2,7 +2,7 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, Megaphone, ListOrdered, MessageSquare,
-  Wallet, FileBarChart2, LogOut, Menu, X, Bot, ChevronLeft, KeyRound
+  Wallet, FileBarChart2, ArrowRightLeft, LogOut, Menu, X, Bot, ChevronLeft, KeyRound
 } from "lucide-react";
 
 import { useState, ReactNode, useRef, useEffect } from "react";
@@ -18,6 +18,7 @@ const NAV = [
   { to: "/chat", label: "Chat",   icon: MessageSquare },
   { to: "/payments", label: "Payments", icon: Wallet },
   { to: "/tds", label: "TDS",     icon: FileBarChart2 },
+  { to: "/convert", label: "Convert", icon: ArrowRightLeft },
 ];
 
 export function AppLayout({ children }: { children: ReactNode }) {
@@ -212,7 +213,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         {/* Mobile bottom nav */}
         <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur-xl border-t border-border">
             <div className="relative">
-              <div ref={navGridRef} className="grid grid-cols-6 h-16">
+              <div ref={navGridRef} className="grid grid-cols-7 h-16">
                 {NAV.map((item) => (
                   <NavLink
                     key={item.to}

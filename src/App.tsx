@@ -12,6 +12,7 @@ import Orders from "./pages/Orders";
 import ChatConfig from "./pages/ChatConfig";
 import Payments from "./pages/Payments";
 import Tds from "./pages/Tds";
+import Convert from "./pages/Convert";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -43,6 +44,7 @@ const App = () => (
               <Route path="/chat" element={<ProtectedRoute><ChatConfig /></ProtectedRoute>} />
               <Route path="/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
               <Route path="/tds" element={<ProtectedRoute><Tds /></ProtectedRoute>} />
+              <Route path="/convert" element={<ProtectedRoute><Convert /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </SystemProvider>
