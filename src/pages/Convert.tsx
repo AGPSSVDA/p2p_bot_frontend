@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   ArrowRightLeft, Plus, Trash2, RefreshCw, Loader2, AlertTriangle,
-  CheckCircle2, Clock, MinusCircle, Search,
+  CheckCircle2, Clock, MinusCircle, Search, Coins,
 } from "lucide-react";
 import { useSystem } from "@/context/SystemContext";
 import { Toggle } from "@/components/Toggle";
@@ -18,19 +18,19 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
+const FIXED_TARGET = "USDT";
 const PAGE_SIZE = 25;
 
 export default function ConvertPage() {
   const {
     autoConvertEnabled,
-    convertTargetAsset,
     toggleAutoConvert,
-    setConvertTarget,
     loading: systemLoading,
   } = useSystem();
 
   const [assets, setAssets] = useState<ConvertAsset[]>([]);
   const [assetsLoading, setAssetsLoading] = useState(true);
+  const [pendingToggles, setPendingToggles] = useState<Record<string, boolean>>({});
   const [data, setData] = useState<ConversionListData | null>(null);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
@@ -47,7 +47,8 @@ export default function ConvertPage() {
     try {
       setAssetsLoading(true);
       const list = await convertService.listAssets(false);
-      setAssets(list);
+      // USDT is the fixed target — never show it in the source list
+      setAssets(list.filter((a) => a.symbol.toUpperCase() !== FIXED_TARGET));
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "Failed to load assets");
     } finally {
@@ -82,14 +83,35 @@ export default function ConvertPage() {
   useEffect(() => { setPage(1); }, [search, statusFilter]);
 
   const enabledAssets = useMemo(() => assets.filter((a) => a.enabled), [assets]);
-  const targetExistsInList = useMemo(
-    () => enabledAssets.some((a) => a.symbol === convertTargetAsset),
-    [enabledAssets, convertTargetAsset]
-  );
 
-  const onTargetChange = async (sym: string) => {
-    if (!sym || sym === convertTargetAsset) return;
-    await setConvertTarget(sym);
+  const toggleSourceCoin = async (asset: ConvertAsset) => {
+    if (pendingToggles[asset.symbol]) return;
+    const next = !asset.enabled;
+    // Optimistic update
+    setPendingToggles((p) => ({ ...p, [asset.symbol]: true }));
+    setAssets((list) =>
+      list.map((a) => (a.symbol === asset.symbol ? { ...a, enabled: next } : a))
+    );
+    try {
+      await convertService.updateAsset(asset.symbol, { enabled: next });
+      toast.success(
+        next
+          ? `${asset.symbol} → USDT auto-convert ON`
+          : `${asset.symbol} auto-convert OFF`
+      );
+    } catch (err: any) {
+      // Roll back
+      setAssets((list) =>
+        list.map((a) => (a.symbol === asset.symbol ? { ...a, enabled: !next } : a))
+      );
+      toast.error(err?.response?.data?.message || `Failed to update ${asset.symbol}`);
+    } finally {
+      setPendingToggles((p) => {
+        const next2 = { ...p };
+        delete next2[asset.symbol];
+        return next2;
+      });
+    }
   };
 
   const onAddAsset = async () => {
@@ -98,10 +120,14 @@ export default function ConvertPage() {
       toast.error("Symbol must be 2-16 alphanumeric characters");
       return;
     }
+    if (symbol === FIXED_TARGET) {
+      toast.error(`${FIXED_TARGET} is the fixed target — it can't be a source coin`);
+      return;
+    }
     setAdding(true);
     try {
       await convertService.addAsset(symbol, addName.trim() || undefined);
-      toast.success(`Added ${symbol}`);
+      toast.success(`Added ${symbol}. Toggle it ON to start auto-convert.`);
       setAddOpen(false);
       setAddSymbol("");
       setAddName("");
@@ -134,8 +160,8 @@ export default function ConvertPage() {
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Auto-Convert</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            When ON, every released crypto is automatically swapped to{" "}
-            <span className="font-semibold text-foreground">{convertTargetAsset}</span> via the Binance Convert API.
+            Pick which source coins to auto-swap. Every selected coin gets converted to{" "}
+            <span className="font-semibold text-foreground">{FIXED_TARGET}</span> on order completion.
           </p>
         </div>
         <button
@@ -148,7 +174,7 @@ export default function ConvertPage() {
         </button>
       </div>
 
-      {/* Toggle + target selector */}
+      {/* Master toggle */}
       <motion.div
         whileHover={{ y: -2 }}
         className={cn(
@@ -165,7 +191,7 @@ export default function ConvertPage() {
               <ArrowRightLeft className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wider text-muted-foreground">Auto-Convert</p>
+              <p className="text-xs uppercase tracking-wider text-muted-foreground">Auto-Convert Master Switch</p>
               <p className="text-lg font-bold mt-0.5 flex items-center gap-2">
                 {autoConvertEnabled ? "Enabled" : "Disabled"}
                 <span className={cn("h-2 w-2 rounded-full", autoConvertEnabled ? "bg-success animate-pulse-glow" : "bg-muted-foreground")} />
@@ -179,83 +205,111 @@ export default function ConvertPage() {
           />
         </div>
 
-        <div className="grid sm:grid-cols-[1fr_auto] gap-3 mt-5 items-end">
-          <div>
-            <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-              Convert every released coin into
-            </label>
-            <div className="flex items-center gap-2 mt-1.5">
-              <select
-                value={convertTargetAsset}
-                onChange={(e) => onTargetChange(e.target.value)}
-                disabled={assetsLoading || enabledAssets.length === 0}
-                className="h-10 flex-1 rounded-lg border border-border bg-background text-foreground px-3 text-sm font-semibold focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30 transition disabled:opacity-50"
-              >
-                {!targetExistsInList && (
-                  <option value={convertTargetAsset}>
-                    {convertTargetAsset} (current — not in list)
-                  </option>
-                )}
-                {enabledAssets.map((a) => (
-                  <option key={a.symbol} value={a.symbol}>
-                    {a.symbol}{a.name ? ` — ${a.name}` : ""}
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={() => setAddOpen(true)}
-                className="h-10 px-3 rounded-lg bg-primary text-primary-foreground text-xs font-semibold flex items-center gap-1.5 hover:bg-primary/90 transition"
-              >
-                <Plus className="h-4 w-4" /> Add coin
-              </button>
-            </div>
+        <div className="mt-4 rounded-lg bg-surface-2 border border-border px-4 py-3 flex items-center gap-3">
+          <Coins className="h-5 w-5 text-primary shrink-0" />
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Fixed Target</p>
+            <p className="text-sm font-bold mt-0.5">
+              Always convert to <span className="text-primary">{FIXED_TARGET}</span>
+            </p>
+          </div>
+          <div className="text-[11px] text-muted-foreground">
+            {enabledAssets.length} of {assets.length} source coin{assets.length === 1 ? "" : "s"} active
           </div>
         </div>
 
-        {/* Asset chips with delete */}
-        {assets.length > 0 && (
-          <div className="mt-4 pt-4 border-t border-border/60">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">
-              Configured coins ({assets.length})
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {assets.map((a) => {
-                const isActive = a.symbol === convertTargetAsset;
-                return (
-                  <span
-                    key={a.symbol}
-                    className={cn(
-                      "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-semibold border",
-                      isActive
-                        ? "bg-primary/15 text-primary border-primary/30"
-                        : a.enabled
-                          ? "bg-surface-2 text-foreground border-border"
-                          : "bg-muted text-muted-foreground border-border opacity-60"
-                    )}
-                    title={a.name || a.symbol}
-                  >
-                    {a.symbol}
-                    {!isActive && (
-                      <button
-                        onClick={() => setDeleteTarget(a)}
-                        className="hover:text-destructive transition"
-                        aria-label={`Remove ${a.symbol}`}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </button>
-                    )}
-                  </span>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
         <p className="text-[11px] text-muted-foreground mt-4 leading-relaxed">
-          When OFF, no conversion runs — the released crypto stays in your Binance spot wallet untouched.
-          This is completely separate from chat messages; the seller never sees anything related to conversion.
+          When the master switch is OFF, no conversion runs.
+          When ON, only the source coins toggled below get auto-converted; everything else stays in your spot wallet untouched.
+          The seller never sees anything about this — chat flow is unaffected.
         </p>
       </motion.div>
+
+      {/* Source coin selector */}
+      <div className="surface-card rounded-2xl p-5">
+        <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+          <div>
+            <h2 className="font-semibold text-sm">Source coins → {FIXED_TARGET}</h2>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              Toggle each coin you want to auto-convert. Multiple selections allowed.
+            </p>
+          </div>
+          <button
+            onClick={() => setAddOpen(true)}
+            className="h-9 px-3 rounded-lg bg-primary text-primary-foreground text-xs font-semibold flex items-center gap-1.5 hover:bg-primary/90 transition"
+          >
+            <Plus className="h-4 w-4" /> Add coin
+          </button>
+        </div>
+
+        {assetsLoading ? (
+          <div className="py-10 flex flex-col items-center justify-center gap-3">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            <p className="text-xs text-muted-foreground">Loading source coins...</p>
+          </div>
+        ) : assets.length === 0 ? (
+          <div className="py-10 flex flex-col items-center text-center">
+            <Coins className="h-10 w-10 text-muted-foreground/60" />
+            <p className="mt-3 font-semibold">No source coins configured</p>
+            <p className="text-sm text-muted-foreground mt-1">Click "Add coin" to add the first one.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {assets.map((a) => {
+              const isPending = !!pendingToggles[a.symbol];
+              return (
+                <div
+                  key={a.symbol}
+                  className={cn(
+                    "rounded-xl border p-3 flex items-center justify-between gap-3 transition",
+                    a.enabled
+                      ? "bg-primary/10 border-primary/30"
+                      : "bg-surface-2 border-border hover:border-border/80"
+                  )}
+                >
+                  <button
+                    onClick={() => toggleSourceCoin(a)}
+                    disabled={isPending}
+                    className="flex items-center gap-3 flex-1 min-w-0 text-left disabled:opacity-60"
+                  >
+                    <span
+                      className={cn(
+                        "h-8 w-8 rounded-lg flex items-center justify-center text-[11px] font-bold shrink-0 border",
+                        a.enabled
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-background text-muted-foreground border-border"
+                      )}
+                    >
+                      {a.symbol.slice(0, 3)}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold truncate">{a.symbol}</p>
+                      {a.name && (
+                        <p className="text-[10px] text-muted-foreground truncate">{a.name}</p>
+                      )}
+                    </div>
+                  </button>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Toggle
+                      checked={a.enabled}
+                      onChange={() => toggleSourceCoin(a)}
+                      disabled={isPending}
+                    />
+                    <button
+                      onClick={() => setDeleteTarget(a)}
+                      className="h-7 w-7 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition flex items-center justify-center"
+                      aria-label={`Remove ${a.symbol}`}
+                      disabled={isPending}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       {/* Summary tiles */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -272,7 +326,7 @@ export default function ConvertPage() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search order no, asset…"
+            placeholder="Search order no, asset..."
             className="w-full h-10 rounded-lg bg-background text-foreground border border-border pl-10 pr-3 text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30 transition"
           />
         </div>
@@ -311,7 +365,7 @@ export default function ConvertPage() {
             <ArrowRightLeft className="h-10 w-10 text-muted-foreground/60" />
             <p className="mt-3 font-semibold">No conversions yet</p>
             <p className="text-sm text-muted-foreground mt-1">
-              Enable auto-convert and complete a P2P order to see entries here.
+              Enable the master switch + at least one source coin, then complete a P2P order.
             </p>
           </div>
         ) : (
@@ -327,13 +381,13 @@ export default function ConvertPage() {
         )}
       </div>
 
-      {/* Toggle confirm */}
+      {/* Master-toggle confirm */}
       <ConfirmModal
         open={confirmToggle}
         title={autoConvertEnabled ? "Disable auto-convert?" : "Enable auto-convert?"}
         description={autoConvertEnabled
           ? "New orders will no longer be converted automatically. Released crypto will stay in your spot wallet."
-          : `Every completed order will be auto-swapped to ${convertTargetAsset} via Binance Convert API.`}
+          : `Selected source coins will be auto-swapped to ${FIXED_TARGET} via Binance Convert after every completed order.`}
         confirmLabel={autoConvertEnabled ? "Disable" : "Enable"}
         destructive={autoConvertEnabled}
         onConfirm={async () => { setConfirmToggle(false); await toggleAutoConvert(); }}
@@ -343,8 +397,8 @@ export default function ConvertPage() {
       {/* Delete asset confirm */}
       <ConfirmModal
         open={!!deleteTarget}
-        title={`Remove ${deleteTarget?.symbol} from list?`}
-        description={`This will hide ${deleteTarget?.symbol} from the dropdown. Historical conversions stay intact.`}
+        title={`Remove ${deleteTarget?.symbol}?`}
+        description={`This removes ${deleteTarget?.symbol} from the source-coin list entirely. Historical conversions stay intact.`}
         confirmLabel="Remove"
         destructive
         onConfirm={onConfirmDelete}
@@ -363,9 +417,9 @@ export default function ConvertPage() {
             className="w-full max-w-md surface-card rounded-2xl p-6 space-y-4"
           >
             <div>
-              <h3 className="font-bold text-lg">Add convert target coin</h3>
+              <h3 className="font-bold text-lg">Add source coin</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                Add any Binance-supported asset to the dropdown.
+                Add any Binance-supported asset. Toggle it ON afterward to start auto-converting it to {FIXED_TARGET}.
               </p>
             </div>
             <div className="space-y-3">
@@ -374,7 +428,7 @@ export default function ConvertPage() {
                 <input
                   value={addSymbol}
                   onChange={(e) => setAddSymbol(e.target.value.toUpperCase())}
-                  placeholder="e.g. BUSD"
+                  placeholder="e.g. SHIB"
                   maxLength={16}
                   className="w-full mt-1 h-10 rounded-lg bg-background text-foreground border border-border px-3 text-sm font-bold tabular-nums focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30 transition uppercase"
                 />
@@ -384,7 +438,7 @@ export default function ConvertPage() {
                 <input
                   value={addName}
                   onChange={(e) => setAddName(e.target.value)}
-                  placeholder="e.g. Binance USD"
+                  placeholder="e.g. Shiba Inu"
                   className="w-full mt-1 h-10 rounded-lg bg-background text-foreground border border-border px-3 text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/30 transition"
                 />
               </div>
