@@ -116,8 +116,9 @@ export default function ConvertPage() {
 
   const onAddAsset = async () => {
     const symbol = addSymbol.trim().toUpperCase();
-    if (!symbol || !/^[A-Z0-9]{2,16}$/.test(symbol)) {
-      toast.error("Symbol must be 2-16 alphanumeric characters");
+    // 1-16 chars — Binance has single-letter tickers (e.g. "U" = United Stables)
+    if (!symbol || !/^[A-Z0-9]{1,16}$/.test(symbol)) {
+      toast.error("Symbol must be 1-16 alphanumeric characters (uppercase)");
       return;
     }
     if (symbol === FIXED_TARGET) {
