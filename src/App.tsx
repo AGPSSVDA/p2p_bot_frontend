@@ -14,6 +14,9 @@ import Payments from "./pages/Payments";
 import Tds from "./pages/Tds";
 import Convert from "./pages/Convert";
 import NotFound from "./pages/NotFound.tsx";
+import SellerDashboard from "./pages/SellerDashboard";
+import SellerAds from "./pages/SellerAds";
+import SellerOrders from "./pages/SellerOrders";
 
 const queryClient = new QueryClient();
 
@@ -45,6 +48,10 @@ const App = () => (
               <Route path="/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
               <Route path="/tds" element={<ProtectedRoute><Tds /></ProtectedRoute>} />
               <Route path="/convert" element={<ProtectedRoute><Convert /></ProtectedRoute>} />
+              {/* Seller Routes */}
+              <Route path="/seller" element={<ProtectedRoute><SellerDashboard /></ProtectedRoute>} />
+              <Route path="/seller/ads" element={<ProtectedRoute><SellerAds /></ProtectedRoute>} />
+              <Route path="/seller/orders" element={<ProtectedRoute><SellerOrders /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </SystemProvider>

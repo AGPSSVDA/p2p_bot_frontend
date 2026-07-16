@@ -2,7 +2,8 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, Megaphone, ListOrdered, MessageSquare,
-  Wallet, FileBarChart2, ArrowRightLeft, LogOut, Menu, X, Bot, ChevronLeft, KeyRound
+  Wallet, FileBarChart2, ArrowRightLeft, LogOut, Menu, X, Bot, ChevronLeft, KeyRound,
+  Store, ShoppingCart, BarChart3
 } from "lucide-react";
 
 import { useState, ReactNode, useRef, useEffect } from "react";
@@ -19,6 +20,12 @@ const NAV = [
   { to: "/payments", label: "Payments", icon: Wallet },
   { to: "/tds", label: "TDS",     icon: FileBarChart2 },
   { to: "/convert", label: "Convert", icon: ArrowRightLeft },
+];
+
+const SELLER_NAV = [
+  { to: "/seller", label: "Dashboard",   icon: Store },
+  { to: "/seller/ads", label: "Seller Ads", icon: Megaphone },
+  { to: "/seller/orders", label: "Seller Orders", icon: ShoppingCart },
 ];
 
 export function AppLayout({ children }: { children: ReactNode }) {
@@ -101,12 +108,50 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
 
 
-        <nav className="flex-1 p-3 space-y-1">
+        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           {NAV.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               end={item.to === "/"}
+              className={({ isActive }) =>
+                cn(
+                  "group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
+                  isActive
+                    ? "bg-primary/10 text-primary"
+                    : "text-foreground/70 hover:text-foreground hover:bg-surface-2"
+                )
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  {isActive && (
+                    <motion.div
+                      layoutId="navActive"
+                      className="absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-primary rounded-r-full shadow-[0_0_10px_hsl(var(--primary))]"
+                      transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                    />
+                  )}
+                  <item.icon className="h-[18px] w-[18px] shrink-0" />
+                  {!collapsed && <span>{item.label}</span>}
+                </>
+              )}
+            </NavLink>
+          ))}
+
+          {/* Seller Section */}
+          {!collapsed && (
+            <>
+              <div className="my-2 mx-3 h-px bg-border" />
+              <p className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Seller</p>
+            </>
+          )}
+
+          {SELLER_NAV.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.to === "/seller"}
               className={({ isActive }) =>
                 cn(
                   "group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
@@ -213,7 +258,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         {/* Mobile bottom nav */}
         <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur-xl border-t border-border">
             <div className="relative">
-              <div ref={navGridRef} className="grid grid-cols-7 h-16">
+              <div ref={navGridRef} className="grid grid-cols-10 h-16">
                 {NAV.map((item) => (
                   <NavLink
                     key={item.to}
@@ -229,6 +274,24 @@ export function AppLayout({ children }: { children: ReactNode }) {
                     <>
                       <item.icon className="h-5 w-5" />
                       <span>{item.label}</span>
+                    </>
+                  </NavLink>
+                ))}
+                {SELLER_NAV.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.to === "/seller"}
+                    className={({ isActive }) =>
+                      cn(
+                        "w-full flex flex-col items-center justify-center gap-1 text-[10px] font-medium transition relative",
+                        isActive ? "text-primary" : "text-muted-foreground"
+                      )
+                    }
+                  >
+                    <>
+                      <item.icon className="h-5 w-5" />
+                      <span>{item.label.split(' ')[0]}</span>
                     </>
                   </NavLink>
                 ))}
@@ -275,6 +338,28 @@ export function AppLayout({ children }: { children: ReactNode }) {
                     key={item.to}
                     to={item.to}
                     end={item.to === "/"}
+                    onClick={() => setMobileOpen(false)}
+                    className={({ isActive }) =>
+                      cn(
+                        "flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition",
+                        isActive ? "bg-primary/10 text-primary" : "hover:bg-surface-2"
+                      )
+                    }
+                  >
+                    <item.icon className="h-[18px] w-[18px]" />
+                    {item.label}
+                  </NavLink>
+                ))}
+
+                {/* Seller Section */}
+                <div className="my-2 h-px bg-border" />
+                <p className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Seller</p>
+
+                {SELLER_NAV.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.to === "/seller"}
                     onClick={() => setMobileOpen(false)}
                     className={({ isActive }) =>
                       cn(
