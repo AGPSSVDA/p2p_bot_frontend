@@ -1,7 +1,20 @@
 import axios from "axios";
- 
+
+// Resolve the API base URL. In production this MUST come from VITE_API_URL
+// (set in .env.production, baked in at build time). If it's ever missing in a
+// production build, warn loudly instead of silently falling back to localhost.
+const API_URL = import.meta.env.VITE_API_URL;
+
+if (!API_URL && import.meta.env.PROD) {
+  // eslint-disable-next-line no-console
+  console.error(
+    "[config] VITE_API_URL is not set in this production build. " +
+      "API requests will fail. Set it in .env.production and rebuild."
+  );
+}
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
+  baseURL: API_URL,
   headers: {
     "Content-Type": "application/json",
   },
