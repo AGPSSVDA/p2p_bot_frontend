@@ -28,6 +28,52 @@ const SELLER_NAV = [
   { to: "/seller/orders", label: "Seller Orders", icon: ShoppingCart },
 ];
 
+type PanelMode = "buyer" | "seller";
+
+/** Buyer / Seller panel switch used in the desktop sidebar and mobile drawer. */
+function PanelSwitch({
+  mode,
+  onChange,
+  className,
+}: {
+  mode: PanelMode;
+  onChange: (m: PanelMode) => void;
+  className?: string;
+}) {
+  return (
+    <div
+      role="tablist"
+      aria-label="Panel"
+      className={cn(
+        "grid grid-cols-2 gap-1 rounded-lg bg-surface-2 p-1 border border-border",
+        className
+      )}
+    >
+      {(["buyer", "seller"] as PanelMode[]).map((m) => {
+        const active = mode === m;
+        const Icon = m === "buyer" ? ShoppingCart : Store;
+        return (
+          <button
+            key={m}
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(m)}
+            className={cn(
+              "flex items-center justify-center gap-1.5 rounded-md px-2 py-2 text-xs font-semibold capitalize transition",
+              active
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground hover:bg-surface-3"
+            )}
+          >
+            <Icon className="h-3.5 w-3.5 shrink-0" />
+            {m}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function AppLayout({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -35,6 +81,26 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const { botRunning } = useSystem();
   const nav = useNavigate();
   const location = useLocation();
+
+  // Buyer / Seller panel switch. Buyer is the default; only the active panel's
+  // pages are listed in the sidebar.
+  const [mode, setMode] = useState<PanelMode>(
+    location.pathname.startsWith("/seller") ? "seller" : "buyer"
+  );
+
+  // Keep the switch in sync when the route changes (deep link, back button).
+  useEffect(() => {
+    setMode(location.pathname.startsWith("/seller") ? "seller" : "buyer");
+  }, [location.pathname]);
+
+  // Switching panels navigates to that panel's landing page.
+  const switchMode = (next: PanelMode) => {
+    if (next === mode) return;
+    setMode(next);
+    nav(next === "seller" ? "/seller" : "/");
+  };
+
+  const activeNav = mode === "seller" ? SELLER_NAV : NAV;
   const navGridRef = useRef<HTMLDivElement | null>(null);
   const [indicatorLeft, setIndicatorLeft] = useState<number | null>(null);
 
@@ -109,49 +175,39 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
 
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {NAV.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === "/"}
-              className={({ isActive }) =>
-                cn(
-                  "group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
-                  isActive
-                    ? "bg-primary/10 text-primary"
-                    : "text-foreground/70 hover:text-foreground hover:bg-surface-2"
-                )
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  {isActive && (
-                    <motion.div
-                      layoutId="navActive"
-                      className="absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-primary rounded-r-full shadow-[0_0_10px_hsl(var(--primary))]"
-                      transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                    />
-                  )}
-                  <item.icon className="h-[18px] w-[18px] shrink-0" />
-                  {!collapsed && <span>{item.label}</span>}
-                </>
-              )}
-            </NavLink>
-          ))}
-
-          {/* Seller Section */}
-          {!collapsed && (
-            <>
-              <div className="my-2 mx-3 h-px bg-border" />
-              <p className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Seller</p>
-            </>
+          {/* Buyer / Seller switch */}
+          {!collapsed ? (
+            <PanelSwitch mode={mode} onChange={switchMode} className="mb-3" />
+          ) : (
+            <div className="mb-3 flex flex-col gap-1">
+              {(["buyer", "seller"] as PanelMode[]).map((m) => {
+                const active = mode === m;
+                const Icon = m === "buyer" ? ShoppingCart : Store;
+                return (
+                  <button
+                    key={m}
+                    onClick={() => switchMode(m)}
+                    title={m === "buyer" ? "Buyer panel" : "Seller panel"}
+                    aria-label={m === "buyer" ? "Buyer panel" : "Seller panel"}
+                    className={cn(
+                      "flex items-center justify-center rounded-lg py-2 transition",
+                      active
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:bg-surface-2"
+                    )}
+                  >
+                    <Icon className="h-[18px] w-[18px]" />
+                  </button>
+                );
+              })}
+            </div>
           )}
 
-          {SELLER_NAV.map((item) => (
+          {activeNav.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
-              end={item.to === "/seller"}
+              end={item.to === "/" || item.to === "/seller"}
               className={({ isActive }) =>
                 cn(
                   "group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
@@ -258,12 +314,16 @@ export function AppLayout({ children }: { children: ReactNode }) {
         {/* Mobile bottom nav */}
         <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur-xl border-t border-border">
             <div className="relative">
-              <div ref={navGridRef} className="grid grid-cols-10 h-16">
-                {NAV.map((item) => (
+              <div
+                ref={navGridRef}
+                className="grid h-16"
+                style={{ gridTemplateColumns: `repeat(${activeNav.length}, minmax(0, 1fr))` }}
+              >
+                {activeNav.map((item) => (
                   <NavLink
                     key={item.to}
                     to={item.to}
-                    end={item.to === "/"}
+                    end={item.to === "/" || item.to === "/seller"}
                     className={({ isActive }) =>
                       cn(
                         "w-full flex flex-col items-center justify-center gap-1 text-[10px] font-medium transition relative",
@@ -273,25 +333,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   >
                     <>
                       <item.icon className="h-5 w-5" />
-                      <span>{item.label}</span>
-                    </>
-                  </NavLink>
-                ))}
-                {SELLER_NAV.map((item) => (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    end={item.to === "/seller"}
-                    className={({ isActive }) =>
-                      cn(
-                        "w-full flex flex-col items-center justify-center gap-1 text-[10px] font-medium transition relative",
-                        isActive ? "text-primary" : "text-muted-foreground"
-                      )
-                    }
-                  >
-                    <>
-                      <item.icon className="h-5 w-5" />
-                      <span>{item.label.split(' ')[0]}</span>
+                      <span className="truncate max-w-full px-0.5">{item.label.split(' ')[0]}</span>
                     </>
                   </NavLink>
                 ))}
@@ -333,33 +375,14 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 </button>
               </div>
               <div className="flex-1 p-3 space-y-1 overflow-y-auto">
-                {NAV.map((item) => (
+                {/* Buyer / Seller switch */}
+                <PanelSwitch mode={mode} onChange={switchMode} className="mb-3" />
+
+                {activeNav.map((item) => (
                   <NavLink
                     key={item.to}
                     to={item.to}
-                    end={item.to === "/"}
-                    onClick={() => setMobileOpen(false)}
-                    className={({ isActive }) =>
-                      cn(
-                        "flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition",
-                        isActive ? "bg-primary/10 text-primary" : "hover:bg-surface-2"
-                      )
-                    }
-                  >
-                    <item.icon className="h-[18px] w-[18px]" />
-                    {item.label}
-                  </NavLink>
-                ))}
-
-                {/* Seller Section */}
-                <div className="my-2 h-px bg-border" />
-                <p className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Seller</p>
-
-                {SELLER_NAV.map((item) => (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    end={item.to === "/seller"}
+                    end={item.to === "/" || item.to === "/seller"}
                     onClick={() => setMobileOpen(false)}
                     className={({ isActive }) =>
                       cn(
