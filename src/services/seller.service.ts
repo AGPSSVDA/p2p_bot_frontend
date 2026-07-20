@@ -70,6 +70,14 @@ export interface CriterionValue {
   value: number | string;
 }
 
+/** Ads list filter: "live" = Online on Binance only, "all" = everything. */
+export type AdStatusFilter = 'live' | 'all';
+
+export interface AdCounts {
+  all: number;
+  live: number;
+}
+
 export interface EligibilityRules {
   min30dayTrades: CriterionValue | number;
   min30dayCompletionRate: CriterionValue | number;
@@ -390,9 +398,21 @@ class SellerService {
 
   // ===== ADS ENDPOINTS =====
 
-  async getAds() {
-    const res = await api.get<{ success: boolean; data: SellerAd[] }>('/seller/ads');
-    return { success: res.data.success, data: res.data.data };
+  /**
+   * Fetch seller ads.
+   * @param status "live" = only ads Online on Binance, "all" = every ad (default)
+   */
+  async getAds(status: AdStatusFilter = 'all') {
+    const res = await api.get<{
+      success: boolean;
+      data: SellerAd[];
+      counts?: AdCounts;
+    }>('/seller/ads', { params: { status } });
+    return {
+      success: res.data.success,
+      data: res.data.data,
+      counts: res.data.counts ?? { all: 0, live: 0 },
+    };
   }
 
   async getAdDetail(adNo: string) {

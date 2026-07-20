@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, Edit2, Power, RefreshCw } from 'lucide-react';
-import { sellerService, SellerAd } from '@/services/seller.service';
+import { sellerService, SellerAd, AdStatusFilter, AdCounts } from '@/services/seller.service';
 import { Skeleton } from '@/components/Skeletons';
 import AdDetailsModal from '@/components/seller/AdDetailsModal';
 
@@ -13,16 +13,20 @@ export default function SellerAds() {
   const [syncing, setSyncing] = useState(false);
   const [selectedAd, setSelectedAd] = useState<SellerAd | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  // Live = only ads Online on Binance. All = every synced ad.
+  const [filter, setFilter] = useState<AdStatusFilter>('all');
+  const [counts, setCounts] = useState<AdCounts>({ all: 0, live: 0 });
 
   useEffect(() => {
-    fetchAds();
-  }, []);
+    fetchAds(filter);
+  }, [filter]);
 
-  const fetchAds = async () => {
+  const fetchAds = async (status: AdStatusFilter = filter) => {
     try {
       setLoading(true);
-      const response = await sellerService.getAds();
+      const response = await sellerService.getAds(status);
       setAds(response.data as SellerAd[]);
+      setCounts(response.counts);
       setError(null);
     } catch (err) {
       setError('Failed to load ads');
@@ -80,7 +84,9 @@ export default function SellerAds() {
       <div className="flex items-end justify-between flex-wrap gap-4 border-b border-border pb-6">
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Your Ads</h1>
-          <p className="text-sm text-muted-foreground mt-1">{ads.length} ads available</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            {loading ? 'Loading…' : `${ads.length} ${filter === 'live' ? 'live' : ''} ads shown`}
+          </p>
         </div>
         <div className="flex gap-2 flex-wrap">
           <button
@@ -92,12 +98,45 @@ export default function SellerAds() {
             {syncing ? 'Syncing...' : 'Sync from Binance'}
           </button>
           <button
-            onClick={fetchAds}
+            onClick={() => fetchAds()}
             className="h-10 px-4 rounded-lg bg-surface-2 border border-border text-sm font-semibold flex items-center gap-2 hover:bg-surface-3 transition"
           >
             Refresh
           </button>
         </div>
+      </div>
+
+      {/* Live / All filter */}
+      <div
+        role="tablist"
+        aria-label="Ad status filter"
+        className="inline-grid grid-cols-2 gap-1 rounded-lg bg-surface-2 p-1 border border-border w-full sm:w-auto"
+      >
+        {([
+          { key: 'live' as AdStatusFilter, label: 'Live Ads', count: counts.live },
+          { key: 'all' as AdStatusFilter, label: 'All Ads', count: counts.all },
+        ]).map((tab) => {
+          const active = filter === tab.key;
+          return (
+            <button
+              key={tab.key}
+              role="tab"
+              aria-selected={active}
+              onClick={() => setFilter(tab.key)}
+              className={`flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition ${
+                active
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-surface-3'
+              }`}
+            >
+              {tab.key === 'live' && (
+                <span className={`h-2 w-2 rounded-full ${active ? 'bg-primary-foreground' : 'bg-success'}`} />
+              )}
+              {tab.label}
+              <span className={`text-xs ${active ? 'opacity-80' : 'opacity-60'}`}>({tab.count})</span>
+            </button>
+          );
+        })}
       </div>
 
       {error && (
