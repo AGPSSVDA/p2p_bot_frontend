@@ -127,16 +127,7 @@ export default function AdDetailsModal({
       console.log('📋 Rules to save:');
       console.log(JSON.stringify(rules, null, 2));
 
-      // Validate at least one method is enabled
-      const hasMethod =
-        rules.methods.method1.enabled ||
-        rules.methods.method2.enabled ||
-        rules.methods.method3.enabled;
-
-      if (!hasMethod) {
-        setValidationError('At least one verification method must be enabled');
-        return;
-      }
+      // Verification methods are optional — admin may enable any, all, or none.
 
       // Methods and eligibility are saved via SEPARATE endpoints because they are
       // different things:
@@ -470,7 +461,7 @@ export default function AdDetailsModal({
               <h3 className="font-semibold text-lg">Verification Methods</h3>
             </div>
             <p className="text-xs text-muted-foreground ml-3">
-              Choose at least one verification method for buyers
+              Enable any verification methods for buyers (optional)
             </p>
 
             {/* Method 1 */}
