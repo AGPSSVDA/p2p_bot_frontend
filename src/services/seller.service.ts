@@ -601,6 +601,23 @@ class SellerService {
     return res.data;
   }
 
+  // ===== SELLER BOT ON/OFF =====
+
+  async getBotStatus() {
+    const res = await api.get<{ success: boolean; running: boolean; enabled: boolean }>('/seller/bot/status');
+    return res.data;
+  }
+
+  async startBot() {
+    const res = await api.post<{ success: boolean; running: boolean; message: string }>('/seller/bot/start', {});
+    return res.data;
+  }
+
+  async stopBot() {
+    const res = await api.post<{ success: boolean; running: boolean; message: string }>('/seller/bot/stop', {});
+    return res.data;
+  }
+
   async getSyncStatus() {
     const res = await api.get<{ success: boolean; data: any }>('/seller/sync/status');
     return res.data;

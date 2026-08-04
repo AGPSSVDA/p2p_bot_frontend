@@ -13,6 +13,9 @@ export default function SellerDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
+  // Seller bot on/off (persisted in DB, survives restart)
+  const [botRunning, setBotRunning] = useState<boolean | null>(null);
+  const [botToggling, setBotToggling] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -34,7 +37,27 @@ export default function SellerDashboard() {
     };
 
     fetchData();
+    // Load bot status separately so a failure here doesn't break the dashboard.
+    sellerService.getBotStatus()
+      .then((r) => setBotRunning(!!r.running))
+      .catch(() => setBotRunning(null));
   }, []);
+
+  const handleToggleBot = async () => {
+    if (botRunning === null) return;
+    try {
+      setBotToggling(true);
+      const res = botRunning
+        ? await sellerService.stopBot()
+        : await sellerService.startBot();
+      setBotRunning(!!res.running);
+    } catch (err) {
+      console.error('Failed to toggle bot:', err);
+      setError('Failed to toggle seller bot');
+    } finally {
+      setBotToggling(false);
+    }
+  };
 
   const handleSyncAds = async () => {
     try {
@@ -82,6 +105,27 @@ export default function SellerDashboard() {
       <div className="flex items-end justify-between flex-wrap gap-4">
         <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Seller Dashboard</h1>
         <div className="flex gap-2 flex-wrap items-center">
+          {/* Seller bot on/off toggle */}
+          {botRunning !== null && (
+            <Button
+              onClick={handleToggleBot}
+              disabled={botToggling}
+              variant={botRunning ? 'destructive' : 'default'}
+              size="sm"
+              className="gap-2"
+            >
+              <span
+                className={`h-2 w-2 rounded-full ${
+                  botRunning ? 'bg-white animate-pulse' : 'bg-white/70'
+                }`}
+              />
+              {botToggling
+                ? 'Please wait…'
+                : botRunning
+                ? 'Stop Bot'
+                : 'Start Bot'}
+            </Button>
+          )}
           <Button
             onClick={handleSyncAds}
             disabled={syncing}
