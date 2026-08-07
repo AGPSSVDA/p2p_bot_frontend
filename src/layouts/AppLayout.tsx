@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, Megaphone, ListOrdered, MessageSquare,
   Wallet, FileBarChart2, ArrowRightLeft, LogOut, Menu, X, Bot, ChevronLeft, KeyRound,
-  Store, ShoppingCart, BarChart3
+  Store, ShoppingCart, BarChart3, Settings
 } from "lucide-react";
 
 import { useState, ReactNode, useRef, useEffect } from "react";
@@ -26,6 +26,8 @@ const SELLER_NAV = [
   { to: "/seller", label: "Dashboard",   icon: Store },
   { to: "/seller/ads", label: "Seller Ads", icon: Megaphone },
   { to: "/seller/orders", label: "Seller Orders", icon: ShoppingCart },
+  { to: "/seller/messages", label: "Chat Messages", icon: MessageSquare },
+  { to: "/seller/settings", label: "Settings", icon: Settings },
 ];
 
 type PanelMode = "buyer" | "seller";

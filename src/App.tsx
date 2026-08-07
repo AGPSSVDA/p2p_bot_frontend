@@ -17,6 +17,8 @@ import NotFound from "./pages/NotFound.tsx";
 import SellerDashboard from "./pages/SellerDashboard";
 import SellerAds from "./pages/SellerAds";
 import SellerOrders from "./pages/SellerOrders";
+import SellerSettings from "./pages/SellerSettings";
+import SellerMessages from "./pages/SellerMessages";
 
 const queryClient = new QueryClient();
 
@@ -52,6 +54,8 @@ const App = () => (
               <Route path="/seller" element={<ProtectedRoute><SellerDashboard /></ProtectedRoute>} />
               <Route path="/seller/ads" element={<ProtectedRoute><SellerAds /></ProtectedRoute>} />
               <Route path="/seller/orders" element={<ProtectedRoute><SellerOrders /></ProtectedRoute>} />
+              <Route path="/seller/messages" element={<ProtectedRoute><SellerMessages /></ProtectedRoute>} />
+              <Route path="/seller/settings" element={<ProtectedRoute><SellerSettings /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </SystemProvider>

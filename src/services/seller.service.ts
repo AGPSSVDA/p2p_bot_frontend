@@ -70,6 +70,51 @@ export interface CriterionValue {
   value: number | string;
 }
 
+export interface OpenaiUsageEntry {
+  orderNumber: string | null;
+  model: string;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  cost: number;
+  purpose: string;
+  at: string;
+}
+
+export interface OpenaiUsage {
+  creditAdded: number;
+  spent: number;
+  remaining: number;
+  exhausted?: boolean;
+  tokenOverhead?: number;
+  totalRequests: number;
+  totalTokens: number;
+  today: { spent: number; requests: number };
+  recent: OpenaiUsageEntry[];
+}
+
+// ===== Seller chat message templates =====
+export interface SellerMessageItem {
+  id?: number;
+  message_text: string;
+  step_order: number;
+}
+
+export interface SellerMessageGroup {
+  id: number;
+  template_key: string;
+  small_description?: string;
+  sort_order?: number;
+  messages: SellerMessageItem[];
+}
+
+export interface SellerMessageVariable {
+  token: string;
+  name: string;
+  example: string;
+  description: string;
+}
+
 /** Ads list filter: "live" = Online on Binance only, "all" = everything. */
 export type AdStatusFilter = 'live' | 'all';
 
@@ -618,8 +663,47 @@ class SellerService {
     return res.data;
   }
 
+  // ===== OPENAI USAGE / CREDIT =====
+
+  async getOpenaiUsage() {
+    const res = await api.get<{ success: boolean; data: OpenaiUsage }>('/seller/openai/usage');
+    return res.data;
+  }
+
+  async setOpenaiCredit(creditAdded: number) {
+    const res = await api.post<{ success: boolean; creditAdded: number }>('/seller/openai/credit', { creditAdded });
+    return res.data;
+  }
+
   async getSyncStatus() {
     const res = await api.get<{ success: boolean; data: any }>('/seller/sync/status');
+    return res.data;
+  }
+
+  // ===== SELLER CHAT MESSAGES (editable templates) =====
+
+  async getSellerMessages() {
+    const res = await api.get<{ success: boolean; data: SellerMessageGroup[] }>('/seller/messages');
+    return res.data;
+  }
+
+  async getSellerMessageVariables() {
+    const res = await api.get<{ success: boolean; data: SellerMessageVariable[] }>('/seller/messages/variables');
+    return res.data;
+  }
+
+  async createSellerMessages(templateKey: string, messages: SellerMessageItem[]) {
+    const res = await api.post('/seller/messages', { template_key: templateKey, messages });
+    return res.data;
+  }
+
+  async updateSellerMessages(templateKey: string, messages: SellerMessageItem[]) {
+    const res = await api.put('/seller/messages', { template_key: templateKey, messages });
+    return res.data;
+  }
+
+  async deleteSellerMessage(messageId: number) {
+    const res = await api.delete(`/seller/messages/${messageId}`);
     return res.data;
   }
 }
