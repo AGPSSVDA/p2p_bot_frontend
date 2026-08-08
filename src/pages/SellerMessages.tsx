@@ -31,6 +31,12 @@ const KEY_LABELS: Record<string, string> = {
   seller_otp_send_failed: 'OTP — SMS send failed',
   seller_otp_invalid: 'OTP — wrong OTP',
   seller_otp_limit_exceeded: 'OTP — attempt limit',
+  seller_m3_order_verified_pay: 'Method 3 — order verified, pay',
+  seller_m3_payment_link: 'Method 3 — payment link/QR',
+  seller_m3_payment_received: 'Method 3 — payment received',
+  seller_m3_released: 'Method 3 — crypto released',
+  seller_m3_name_mismatch_refund: 'Method 3 — name mismatch refund',
+  seller_m3_link_failed: 'Method 3 — link failed',
 };
 
 const humanise = (k: string) =>

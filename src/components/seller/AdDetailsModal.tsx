@@ -226,6 +226,17 @@ export default function AdDetailsModal({
     });
   };
 
+  const updateCooldown = (field: 'enabled' | 'hours', value: any) => {
+    setRules({
+      ...rules,
+      cooldown: {
+        enabled: rules.cooldown?.enabled ?? false,
+        hours: rules.cooldown?.hours ?? 24,
+        [field]: value,
+      },
+    });
+  };
+
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -540,7 +551,7 @@ export default function AdDetailsModal({
                 <div className="ml-6 space-y-3">
                   <div>
                     <Label htmlFor="payment_gateway" className="text-sm text-foreground">
-                      Payment Gateway
+                      Payment Gateway <span className="text-destructive">*</span>
                     </Label>
                     <Select
                       value={rules.methods.method3.paymentGateway}
@@ -549,13 +560,13 @@ export default function AdDetailsModal({
                       }
                     >
                       <SelectTrigger id="payment_gateway" className="bg-surface-2 border-border text-foreground mt-1">
-                        <SelectValue />
+                        <SelectValue placeholder="Choose a payment gateway" />
                       </SelectTrigger>
                       <SelectContent className="bg-surface-2 border-border">
-                        <SelectItem value="razorpay">Razorpay</SelectItem>
-                        <SelectItem value="paywize">Paywize</SelectItem>
+                        <SelectItem value="easebuzz">Easebuzz</SelectItem>
                       </SelectContent>
                     </Select>
+                    <p className="text-[11px] text-muted-foreground mt-1">Required. The buyer pays the exact order amount via this gateway.</p>
                   </div>
 
                   <div>
@@ -609,6 +620,48 @@ export default function AdDetailsModal({
               )}
               <p className="text-xs text-muted-foreground ml-6">
                 Complete verification with payment proof. Highest security level.
+              </p>
+            </div>
+          </div>
+
+          {/* Re-order cooldown */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold text-lg">Re-order Cooldown</h3>
+            </div>
+            <div className="border border-border bg-surface-2 p-3 sm:p-4 rounded-xl space-y-3">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="reorder_cooldown_enabled"
+                  checked={!!rules.cooldown?.enabled}
+                  onCheckedChange={(checked) => updateCooldown('enabled', checked === true)}
+                  className="h-5 w-5 shrink-0"
+                />
+                <Label htmlFor="reorder_cooldown_enabled" className="font-semibold cursor-pointer">
+                  Block the same buyer from re-ordering for a while
+                </Label>
+              </div>
+              {rules.cooldown?.enabled && (
+                <div className="ml-6">
+                  <Label htmlFor="reorder_cooldown_hours" className="text-sm text-foreground">
+                    Cooldown period (hours)
+                  </Label>
+                  <input
+                    id="reorder_cooldown_hours"
+                    type="number"
+                    min={1}
+                    value={rules.cooldown?.hours ?? 24}
+                    onChange={(e) => updateCooldown('hours', parseInt(e.target.value) || 24)}
+                    className="mt-1 h-10 w-32 px-3 rounded-lg bg-background border border-input text-foreground focus-visible:ring-2 focus-visible:ring-primary/40"
+                  />
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    After a buyer <span className="font-semibold text-foreground">completes</span> an order on this ad,
+                    they can't place a new one for this many hours.
+                  </p>
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground ml-6">
+                Off = the same buyer can order again immediately.
               </p>
             </div>
           </div>

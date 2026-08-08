@@ -60,9 +60,15 @@ export interface TradeTypeOption {
   trade_type_name: string;
 }
 
+export interface ReorderCooldown {
+  enabled: boolean;
+  hours: number;
+}
+
 export interface SellerAdRules {
   eligibility: EligibilityRules;
   methods: VerificationMethods;
+  cooldown?: ReorderCooldown;
 }
 
 export interface CriterionValue {
@@ -547,6 +553,10 @@ class SellerService {
       method3_payment_link_enabled: extractMethodEnabled(rules.methods?.method3?.paymentLink),
       method3_payment_gateway: rules.methods?.method3?.paymentGateway || 'razorpay',
       method3_delivery_method: rules.methods?.method3?.deliveryMethod || 'payment_link',
+
+      // Re-order cooldown (per-ad)
+      reorder_cooldown_enabled: !!rules.cooldown?.enabled,
+      reorder_cooldown_hours: rules.cooldown?.hours && rules.cooldown.hours > 0 ? rules.cooldown.hours : 24,
     };
 
     const res = await api.put(`/seller/ads/${adNo}/rules`, payload);
