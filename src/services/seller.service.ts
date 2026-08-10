@@ -590,6 +590,19 @@ class SellerService {
     return res.data;
   }
 
+  /**
+   * COOLDOWN ONLY -> saves the re-order cooldown to our DB. It's a bot feature,
+   * NOT a Binance criterion, so it never touches the Binance API — and saves even
+   * when a Binance eligibility sync fails.
+   */
+  async updateAdCooldown(adNo: string, cooldown: { enabled: boolean; hours: number }) {
+    const res = await api.put(`/seller/ads/${adNo}/cooldown`, {
+      enabled: !!cooldown.enabled,
+      hours: cooldown.hours && cooldown.hours > 0 ? cooldown.hours : 24,
+    });
+    return res.data;
+  }
+
   async toggleAd(adNo: string, isActive: boolean) {
     const res = await api.post(`/seller/ads/${adNo}/toggle`, { isActive });
     return res.data;

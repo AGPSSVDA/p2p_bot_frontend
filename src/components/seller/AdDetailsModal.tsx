@@ -33,7 +33,7 @@ interface AdDetailsModalProps {
 const fieldValidations: Record<string, { min?: number; max?: number; description: string }> = {
   min30dayTrades: { min: 0, max: 9999, description: 'Trades in last 30 days' },
   min30dayCompletionRate: { min: 0, max: 100, description: 'Percentage (0-100)' },
-  minRegisteredDays: { min: 0, max: 180, description: 'Days (0-180)' },
+  minRegisteredDays: { min: 0, max: 180, description: 'Min account age in days. Binance caps this at 180 — for "established buyers", also use Completion Rate / All-Trades count.' },
   minAllTradesCount: { min: 0, max: 9999, description: 'Total trades (all-time)' },
   minBuyOrdersCount: { min: 0, max: 9999, description: 'Buy orders (all-time)' },
   minSellOrdersCount: { min: 0, max: 9999, description: 'Sell orders (all-time)' },
@@ -145,6 +145,23 @@ export default function AdDetailsModal({
       } catch (methodsErr: any) {
         console.log(`❌ [FRONTEND] Methods save failed: ${methodsErr.message}`);
         setError(`Failed to save verification methods: ${methodsErr?.response?.data?.error || methodsErr.message || 'Unknown error'}`);
+        setSaving(false);
+        return;
+      }
+
+      // Step 1b: Save re-order cooldown (DB only — a bot feature, NOT a Binance
+      // criterion). Done separately so it saves even if the Binance sync below
+      // fails (e.g. Binance rejects the ad update with 187040).
+      try {
+        console.log('\n⏲️ [FRONTEND] Step 1b: Saving re-order cooldown (DB only)...');
+        await sellerService.updateAdCooldown(ad.adNo, {
+          enabled: !!rules.cooldown?.enabled,
+          hours: rules.cooldown?.hours ?? 24,
+        });
+        console.log('✅ [FRONTEND] Cooldown saved');
+      } catch (cdErr: any) {
+        console.log(`❌ [FRONTEND] Cooldown save failed: ${cdErr.message}`);
+        setError(`Failed to save re-order cooldown: ${cdErr?.response?.data?.error || cdErr.message || 'Unknown error'}`);
         setSaving(false);
         return;
       }
