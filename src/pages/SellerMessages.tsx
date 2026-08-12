@@ -31,6 +31,7 @@ const KEY_LABELS: Record<string, string> = {
   seller_otp_send_failed: 'OTP — SMS send failed',
   seller_otp_invalid: 'OTP — wrong OTP',
   seller_otp_limit_exceeded: 'OTP — attempt limit',
+  seller_sms_otp_template: 'OTP — SMS text (⚠️ DLT-approved)',
   seller_m3_order_verified_pay: 'Method 3 — order verified, pay',
   seller_m3_payment_link: 'Method 3 — payment link/QR',
   seller_m3_payment_received: 'Method 3 — payment received',
