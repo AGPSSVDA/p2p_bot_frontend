@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { AlertCircle, RefreshCw, Coins, TrendingDown, Activity, Hash } from 'lucide-react';
+import { AlertCircle, RefreshCw, Coins, TrendingDown, Activity, Hash, MessageSquareText } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { toast } from 'sonner';
 import { sellerService, OpenaiUsage } from '@/services/seller.service';
 import { Skeleton } from '@/components/Skeletons';
 
@@ -12,6 +13,11 @@ export default function SellerSettings() {
   const [error, setError] = useState<string | null>(null);
   const [creditInput, setCreditInput] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // SMS OTP config (text + matching DLT template id)
+  const [smsTemplate, setSmsTemplate] = useState('');
+  const [smsDltId, setSmsDltId] = useState('');
+  const [smsSaving, setSmsSaving] = useState(false);
 
   const fetchUsage = async () => {
     try {
@@ -28,7 +34,36 @@ export default function SellerSettings() {
     }
   };
 
-  useEffect(() => { fetchUsage(); }, []);
+  const fetchSmsConfig = async () => {
+    try {
+      const res = await sellerService.getSmsConfig();
+      setSmsTemplate(res.data.otpTemplate || '');
+      setSmsDltId(res.data.dltTemplateId || '');
+    } catch (err) {
+      console.error('Failed to load SMS config', err);
+    }
+  };
+
+  const handleSaveSms = async () => {
+    // Accept {otp} or the DLT variable {#var#} as the code slot (the backend
+    // normalises {#var#} → {otp}).
+    if (smsTemplate && !smsTemplate.includes('{otp}') && !smsTemplate.includes('{#var#}')) {
+      toast.error('OTP template must contain {otp} (or the DLT {#var#}) where the code goes.');
+      return;
+    }
+    try {
+      setSmsSaving(true);
+      await sellerService.updateSmsConfig(smsTemplate, smsDltId);
+      toast.success('SMS OTP config saved');
+      await fetchSmsConfig();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || 'Failed to save SMS config');
+    } finally {
+      setSmsSaving(false);
+    }
+  };
+
+  useEffect(() => { fetchUsage(); fetchSmsConfig(); }, []);
 
   const handleSaveCredit = async () => {
     const amount = parseFloat(creditInput);
@@ -218,6 +253,53 @@ export default function SellerSettings() {
           </div>
         </>
       )}
+
+      {/* ===== SMS OTP Settings ===== */}
+      <div className="surface-card rounded-2xl p-5">
+        <div className="flex items-center gap-2 mb-1">
+          <MessageSquareText className="h-4 w-4 text-primary" />
+          <h3 className="font-semibold text-sm">SMS OTP template</h3>
+        </div>
+        <p className="text-xs text-muted-foreground mb-3">
+          The OTP SMS text and its matching <span className="font-semibold text-foreground">DLT Template Id</span>.
+          They must be changed <span className="font-semibold text-foreground">together</span> — the DLT id is tied to
+          the approved text, and the SMS gateway rejects any text/id that doesn't match its DLT registration.
+          Mark the code slot with <code className="font-mono">{'{otp}'}</code> — you can also paste the DLT text
+          as-is with its <code className="font-mono">{'{#var#}'}</code> variable and it will be converted.
+        </p>
+
+        <label className="text-xs font-medium text-muted-foreground">OTP message text</label>
+        <textarea
+          value={smsTemplate}
+          onChange={(e) => setSmsTemplate(e.target.value)}
+          rows={3}
+          placeholder="AGPSS_GLOBAL_PVT: Your OTP for mobile number verification is {otp}. ..."
+          className="mt-1 mb-3 w-full rounded-lg bg-background border border-input text-foreground text-sm px-3 py-2 focus-visible:ring-2 focus-visible:ring-primary/40 resize-none"
+        />
+
+        <label className="text-xs font-medium text-muted-foreground">DLT Template Id</label>
+        <input
+          type="text"
+          value={smsDltId}
+          onChange={(e) => setSmsDltId(e.target.value)}
+          placeholder="e.g. 1777178592039440191"
+          className="mt-1 mb-3 h-10 w-full sm:w-72 px-3 rounded-lg bg-background border border-input text-foreground text-sm font-mono focus-visible:ring-2 focus-visible:ring-primary/40"
+        />
+
+        <div>
+          <button
+            onClick={handleSaveSms}
+            disabled={smsSaving}
+            className="h-10 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition disabled:opacity-50"
+          >
+            {smsSaving ? 'Saving…' : 'Save SMS config'}
+          </button>
+        </div>
+        <p className="text-[11px] text-muted-foreground mt-2">
+          Leave blank to fall back to the values in the server <code className="font-mono">.env</code>. Other SMS
+          settings (sender id, API key, route, PEID) stay in <code className="font-mono">.env</code>.
+        </p>
+      </div>
     </div>
   );
 }

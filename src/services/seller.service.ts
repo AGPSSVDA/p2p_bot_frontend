@@ -703,6 +703,21 @@ class SellerService {
     return res.data;
   }
 
+  // ===== SMS OTP CONFIG (editable text + DLT template id) =====
+
+  async getSmsConfig() {
+    const res = await api.get<{
+      success: boolean;
+      data: { otpTemplate: string; dltTemplateId: string; effectiveDltTemplateId: string };
+    }>('/seller/sms-config');
+    return res.data;
+  }
+
+  async updateSmsConfig(otpTemplate: string, dltTemplateId: string) {
+    const res = await api.put('/seller/sms-config', { otpTemplate, dltTemplateId });
+    return res.data;
+  }
+
   // ===== SELLER CHAT MESSAGES (editable templates) =====
 
   async getSellerMessages() {
