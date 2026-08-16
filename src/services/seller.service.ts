@@ -168,6 +168,7 @@ export interface VerificationMethods {
   method1: {
     name: string;
     enabled: boolean;
+    mobileVerification: boolean;
   };
   method2: {
     name: string;
@@ -556,6 +557,7 @@ class SellerService {
 
       // Method 1
       method1_liveness_enabled: extractMethodEnabled(rules.methods?.method1?.enabled),
+      method1_mobile_verification_enabled: extractMethodEnabled(rules.methods?.method1?.mobileVerification),
 
       // Method 2
       method2_documents_enabled: extractMethodEnabled(rules.methods?.method2?.enabled),

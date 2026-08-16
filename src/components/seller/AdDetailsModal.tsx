@@ -40,9 +40,9 @@ interface AdDetailsModalProps {
 //   - minBtcHolding        -> buyerBtcPositionLimit (BTC amount, FLOAT e.g. 0.01)
 // `float` marks fields that must NOT be rounded to a whole number.
 const fieldValidations: Record<string, { min?: number; max?: number; step?: number; float?: boolean; description: string }> = {
-  min30dayTrades: { min: 0, max: 9999, step: 1, description: 'Min completed trades. Set the time window below to All-time for reliable blocking (30-day lets brand-new 0-trade accounts through).' },
+  min30dayTrades: { min: 0, max: 9999, step: 1, description: 'Min total completed trades the buyer must have. This actually blocks under-qualified buyers (unlike the old 30-day-only rule, which Binance did not enforce).' },
   min30dayCompletionRate: { min: 0, max: 100, step: 0.1, float: true, description: 'Percentage 0-100 (decimals allowed, e.g. 95.5)' },
-  minRegisteredDays: { min: 0, max: 180, step: 1, description: 'Min account age in days (e.g. 30). Binance caps this at 180.' },
+  minRegisteredDays: { min: 0, max: 90, step: 1, description: 'Min account age in days (e.g. 30). Binance max is 90 — higher values are rejected.' },
   minAllTradesCount: { min: 0, max: 9999, step: 1, description: 'Total trades, all-time (whole number)' },
   minBuyOrdersCount: { min: 0, max: 9999, step: 1, description: 'Buy orders, all-time (whole number)' },
   minSellOrdersCount: { min: 0, max: 9999, step: 1, description: 'Sell orders, all-time (whole number)' },
@@ -366,7 +366,7 @@ export default function AdDetailsModal({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 bg-surface-2 p-3 sm:p-4 rounded-xl border border-border">
               <EligibilityField
                 fieldName="min30dayTrades"
-                label="Min 30-Day Trades"
+                label="Min Trades (completed)"
                 value={getCriterionValue(rules.eligibility.min30dayTrades)}
                 enabled={getCriterionEnabled(rules.eligibility.min30dayTrades)}
                 onChange={(e: any) =>
@@ -389,7 +389,7 @@ export default function AdDetailsModal({
                   All-time for reliable blocking (30-Day lets new 0-trade accounts in). */}
               <FilterTimeSelect
                 title="Trade Count"
-                controls={['Min 30-Day Trades', 'Min All Trades Count']}
+                controls={['Min Trades (completed)', 'Min All Trades Count']}
                 value={ft.tradeCount}
                 onChange={(v) => updateFilterTime('tradeCount', v)}
               />
@@ -603,8 +603,26 @@ export default function AdDetailsModal({
                   Method 1: Liveness Check
                 </Label>
               </div>
+              {rules.methods.method1.enabled && (
+                <div className="ml-6 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="method1_mobile"
+                      checked={getMethodEnabled(rules.methods.method1.mobileVerification)}
+                      onCheckedChange={(checked) =>
+                        updateMethod('method1', 'mobileVerification', checked)
+                      }
+                      className="h-5 w-5 shrink-0"
+                    />
+                    <Label htmlFor="method1_mobile" className="text-sm text-foreground cursor-pointer">
+                      Require Mobile OTP Verification
+                    </Label>
+                  </div>
+                </div>
+              )}
               <p className="text-xs text-muted-foreground ml-6">
                 Buyer completes liveness check on Binance. Fastest verification method.
+                Optionally require mobile OTP after liveness (same as Method 2).
               </p>
             </div>
 
