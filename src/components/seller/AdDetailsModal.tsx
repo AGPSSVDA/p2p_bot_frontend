@@ -125,20 +125,29 @@ function EligibilityField({
 
 // Small 30-Day / All-time selector for a group of criteria. Binance scopes the
 // requirement to Last 30 Days (1) or All-time (2); the admin picks here.
+// `controls` spells out exactly which eligibility fields this window applies to,
+// so it's obvious what each dropdown affects.
 function FilterTimeSelect({
-  label,
+  title,
+  controls,
   value,
   onChange,
 }: {
-  label: string;
+  title: string;
+  controls: string[];
   value: 1 | 2;
   onChange: (v: 1 | 2) => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-2 md:col-span-2 -mt-1 mb-1">
-      <span className="text-[11px] text-muted-foreground/80">{label} time window</span>
+    <div className="flex items-start justify-between gap-3 md:col-span-2 mt-1 mb-1 px-3 py-2 rounded-lg bg-background/60 border border-dashed border-border">
+      <div className="flex flex-col gap-0.5 min-w-0">
+        <span className="text-xs font-medium text-foreground">{title} — time window</span>
+        <span className="text-[11px] text-muted-foreground/80">
+          Controls: {controls.join(', ')}
+        </span>
+      </div>
       <Select value={String(value)} onValueChange={(v) => onChange(Number(v) as 1 | 2)}>
-        <SelectTrigger className="h-8 w-[150px] text-xs bg-background border-input">
+        <SelectTrigger className="h-8 w-[150px] shrink-0 text-xs bg-background border-input">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -397,7 +406,8 @@ export default function AdDetailsModal({
 
               {/* Completion Rate is scoped by its own filter window */}
               <FilterTimeSelect
-                label="Completion Rate"
+                title="Completion Rate"
+                controls={['Min Completion Rate (%)']}
                 value={ft.completionRate}
                 onChange={(v) => updateFilterTime('completionRate', v)}
               />
@@ -444,7 +454,8 @@ export default function AdDetailsModal({
 
               {/* Min 30-Day Trades + Min All Trades Count share this filter window */}
               <FilterTimeSelect
-                label="Trade Count (30-Day + All Trades)"
+                title="Trade Count"
+                controls={['Min 30-Day Trades', 'Min All Trades Count']}
                 value={ft.tradeCount}
                 onChange={(v) => updateFilterTime('tradeCount', v)}
               />
@@ -536,7 +547,8 @@ export default function AdDetailsModal({
 
               {/* Min + Max Trade Volume share this filter window */}
               <FilterTimeSelect
-                label="Trade Volume (Min + Max)"
+                title="Trade Volume"
+                controls={['Min Trade Volume (USDT)', 'Max Trade Volume (USDT)']}
                 value={ft.tradeVolume}
                 onChange={(v) => updateFilterTime('tradeVolume', v)}
               />
