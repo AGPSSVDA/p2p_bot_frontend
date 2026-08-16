@@ -40,9 +40,9 @@ interface AdDetailsModalProps {
 //   - minBtcHolding        -> buyerBtcPositionLimit (BTC amount, FLOAT e.g. 0.01)
 // `float` marks fields that must NOT be rounded to a whole number.
 const fieldValidations: Record<string, { min?: number; max?: number; step?: number; float?: boolean; description: string }> = {
-  min30dayTrades: { min: 0, max: 9999, step: 1, description: 'Completed trades in last 30 days (whole number)' },
+  min30dayTrades: { min: 0, max: 9999, step: 1, description: 'Min completed trades. Set the time window below to All-time for reliable blocking (30-day lets brand-new 0-trade accounts through).' },
   min30dayCompletionRate: { min: 0, max: 100, step: 0.1, float: true, description: 'Percentage 0-100 (decimals allowed, e.g. 95.5)' },
-  minRegisteredDays: { min: 0, max: 180, step: 1, description: 'Min account age in days. Binance caps this at 180 — for "established buyers", also use Completion Rate / All-Trades count.' },
+  minRegisteredDays: { min: 0, max: 180, step: 1, description: 'Min account age in days (e.g. 30). Binance caps this at 180.' },
   minAllTradesCount: { min: 0, max: 9999, step: 1, description: 'Total trades, all-time (whole number)' },
   minBuyOrdersCount: { min: 0, max: 9999, step: 1, description: 'Buy orders, all-time (whole number)' },
   minSellOrdersCount: { min: 0, max: 9999, step: 1, description: 'Sell orders, all-time (whole number)' },
