@@ -30,22 +30,39 @@ interface AdDetailsModalProps {
 
 // Validation rules per field. Module-level (pure data) so the field component
 // below can be a stable reference and inputs don't lose focus on re-render.
-const fieldValidations: Record<string, { min?: number; max?: number; description: string }> = {
-  min30dayTrades: { min: 0, max: 9999, description: 'Trades in last 30 days' },
-  min30dayCompletionRate: { min: 0, max: 100, description: 'Percentage (0-100)' },
-  minRegisteredDays: { min: 0, max: 180, description: 'Min account age in days. Binance caps this at 180 — for "established buyers", also use Completion Rate / All-Trades count.' },
-  minAllTradesCount: { min: 0, max: 9999, description: 'Total trades (all-time)' },
-  minBuyOrdersCount: { min: 0, max: 9999, description: 'Buy orders (all-time)' },
-  minSellOrdersCount: { min: 0, max: 9999, description: 'Sell orders (all-time)' },
-  minTradeVolume: { min: 0, max: 999999999, description: 'Minimum USDT volume (advanced)' },
-  maxTradeVolume: { min: 0, max: 999999999, description: 'Maximum USDT volume (advanced)' },
-  minBtcHolding: { min: 0, max: 1000, description: 'Minimum BTC (0.1-10 range)' },
+// Validation rules per field. Ranges + step mirror what Binance /ads/update
+// actually accepts (see the Eligibility Criteria Reference):
+//   - min30dayTrades       -> userTradeCompleteCountMin (integer, last 30D)
+//   - min30dayCompletionRate -> userTradeCompleteRateMin (0-100% here; backend
+//                               converts to the 0-1 decimal Binance wants). Allows
+//                               a fractional percent, so it's a FLOAT field.
+//   - minRegisteredDays    -> buyerRegDaysLimit(=1) + buyerRegisterLimit (max 180)
+//   - minBtcHolding        -> buyerBtcPositionLimit (BTC amount, FLOAT e.g. 0.01)
+// `float` marks fields that must NOT be rounded to a whole number.
+const fieldValidations: Record<string, { min?: number; max?: number; step?: number; float?: boolean; description: string }> = {
+  min30dayTrades: { min: 0, max: 9999, step: 1, description: 'Completed trades in last 30 days (whole number)' },
+  min30dayCompletionRate: { min: 0, max: 100, step: 0.1, float: true, description: 'Percentage 0-100 (decimals allowed, e.g. 95.5)' },
+  minRegisteredDays: { min: 0, max: 180, step: 1, description: 'Min account age in days. Binance caps this at 180 — for "established buyers", also use Completion Rate / All-Trades count.' },
+  minAllTradesCount: { min: 0, max: 9999, step: 1, description: 'Total trades, all-time (whole number)' },
+  minBuyOrdersCount: { min: 0, max: 9999, step: 1, description: 'Buy orders, all-time (whole number)' },
+  minSellOrdersCount: { min: 0, max: 9999, step: 1, description: 'Sell orders, all-time (whole number)' },
+  minTradeVolume: { min: 0, max: 999999999, step: 1, description: 'Minimum USDT volume, all-time (advanced)' },
+  maxTradeVolume: { min: 0, max: 999999999, step: 1, description: 'Maximum USDT volume, all-time (advanced)' },
+  minBtcHolding: { min: 0, max: 1000, step: 0.0001, float: true, description: 'Minimum BTC amount, e.g. 0.01 (decimals allowed)' },
 };
 
+// Parse a field's value with the right numeric type: float-marked fields keep
+// their decimals (completion rate, BTC holding); everything else is a count.
+function parseFieldValue(fieldName: string, raw: any): number {
+  const isFloat = fieldValidations[fieldName]?.float;
+  const n = isFloat ? parseFloat(raw) : parseInt(raw, 10);
+  return isNaN(n) ? 0 : n;
+}
+
 function getFieldWarning(fieldName: string, value: any): string | null {
-  const val = parseInt(value) || 0;
   const validation = fieldValidations[fieldName];
   if (!validation) return null;
+  const val = parseFieldValue(fieldName, value);
   if (validation.min !== undefined && val < validation.min) return `Minimum value: ${validation.min}`;
   if (validation.max !== undefined && val > validation.max) return `Maximum value: ${validation.max}`;
   return null;
@@ -85,6 +102,9 @@ function EligibilityField({
       <Input
         id={fieldName}
         type="number"
+        min={validation?.min}
+        max={validation?.max}
+        step={validation?.step ?? 1}
         disabled={!enabled}
         value={value}
         onChange={onChange}
@@ -302,7 +322,7 @@ export default function AdDetailsModal({
                 onChange={(e: any) =>
                   updateEligibility('min30dayTrades', {
                     enabled: getCriterionEnabled(rules.eligibility.min30dayTrades),
-                    value: parseInt(e.target.value) || 0
+                    value: parseFieldValue('min30dayTrades', e.target.value)
                   })
                 }
                 onToggle={(checked: boolean) => {
@@ -316,13 +336,13 @@ export default function AdDetailsModal({
 
               <EligibilityField
                 fieldName="min30dayCompletionRate"
-                label="Min Completion Rate"
+                label="Min Completion Rate (%)"
                 value={getCriterionValue(rules.eligibility.min30dayCompletionRate)}
                 enabled={getCriterionEnabled(rules.eligibility.min30dayCompletionRate)}
                 onChange={(e: any) =>
                   updateEligibility('min30dayCompletionRate', {
                     enabled: getCriterionEnabled(rules.eligibility.min30dayCompletionRate),
-                    value: parseInt(e.target.value) || 0
+                    value: parseFieldValue('min30dayCompletionRate', e.target.value)
                   })
                 }
                 onToggle={(checked: boolean) => {
@@ -342,7 +362,7 @@ export default function AdDetailsModal({
                 onChange={(e: any) =>
                   updateEligibility('minRegisteredDays', {
                     enabled: getCriterionEnabled(rules.eligibility.minRegisteredDays),
-                    value: parseInt(e.target.value) || 0
+                    value: parseFieldValue('minRegisteredDays', e.target.value)
                   })
                 }
                 onToggle={(checked: boolean) => {
@@ -362,7 +382,7 @@ export default function AdDetailsModal({
                 onChange={(e: any) =>
                   updateEligibility('minAllTradesCount', {
                     enabled: getCriterionEnabled(rules.eligibility.minAllTradesCount),
-                    value: parseInt(e.target.value) || 0
+                    value: parseFieldValue('minAllTradesCount', e.target.value)
                   })
                 }
                 onToggle={(checked: boolean) => {
@@ -382,7 +402,7 @@ export default function AdDetailsModal({
                 onChange={(e: any) =>
                   updateEligibility('minBuyOrdersCount', {
                     enabled: getCriterionEnabled(rules.eligibility.minBuyOrdersCount),
-                    value: parseInt(e.target.value) || 0
+                    value: parseFieldValue('minBuyOrdersCount', e.target.value)
                   })
                 }
                 onToggle={(checked: boolean) => {
@@ -402,7 +422,7 @@ export default function AdDetailsModal({
                 onChange={(e: any) =>
                   updateEligibility('minSellOrdersCount', {
                     enabled: getCriterionEnabled(rules.eligibility.minSellOrdersCount),
-                    value: parseInt(e.target.value) || 0
+                    value: parseFieldValue('minSellOrdersCount', e.target.value)
                   })
                 }
                 onToggle={(checked: boolean) => {
@@ -427,7 +447,7 @@ export default function AdDetailsModal({
                 onChange={(e: any) =>
                   updateEligibility('minTradeVolume', {
                     enabled: getCriterionEnabled(rules.eligibility.minTradeVolume),
-                    value: parseInt(e.target.value) || 0
+                    value: parseFieldValue('minTradeVolume', e.target.value)
                   })
                 }
                 onToggle={(checked: boolean) => {
@@ -447,7 +467,7 @@ export default function AdDetailsModal({
                 onChange={(e: any) =>
                   updateEligibility('maxTradeVolume', {
                     enabled: getCriterionEnabled(rules.eligibility.maxTradeVolume),
-                    value: parseInt(e.target.value) || 0
+                    value: parseFieldValue('maxTradeVolume', e.target.value)
                   })
                 }
                 onToggle={(checked: boolean) => {
@@ -467,7 +487,7 @@ export default function AdDetailsModal({
                 onChange={(e: any) =>
                   updateEligibility('minBtcHolding', {
                     enabled: getCriterionEnabled(rules.eligibility.minBtcHolding),
-                    value: parseFloat(e.target.value) || 0
+                    value: parseFieldValue('minBtcHolding', e.target.value)
                   })
                 }
                 onToggle={(checked: boolean) => {
