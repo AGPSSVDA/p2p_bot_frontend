@@ -123,6 +123,33 @@ function EligibilityField({
   );
 }
 
+// Small 30-Day / All-time selector for a group of criteria. Binance scopes the
+// requirement to Last 30 Days (1) or All-time (2); the admin picks here.
+function FilterTimeSelect({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: 1 | 2;
+  onChange: (v: 1 | 2) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2 md:col-span-2 -mt-1 mb-1">
+      <span className="text-[11px] text-muted-foreground/80">{label} time window</span>
+      <Select value={String(value)} onValueChange={(v) => onChange(Number(v) as 1 | 2)}>
+        <SelectTrigger className="h-8 w-[150px] text-xs bg-background border-input">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="1">Last 30 Days</SelectItem>
+          <SelectItem value="2">All-time</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
 export default function AdDetailsModal({
   ad,
   isOpen,
@@ -274,6 +301,20 @@ export default function AdDetailsModal({
     });
   };
 
+  // Filter-time (30D vs All-time) per criterion group. Defaults match Binance:
+  // trade-count & completion-rate = Last 30D (1), volume = All-time (2).
+  const ft = {
+    tradeCount: (rules.filterTime?.tradeCount ?? 1) as 1 | 2,
+    completionRate: (rules.filterTime?.completionRate ?? 1) as 1 | 2,
+    tradeVolume: (rules.filterTime?.tradeVolume ?? 2) as 1 | 2,
+  };
+  const updateFilterTime = (field: 'tradeCount' | 'completionRate' | 'tradeVolume', value: 1 | 2) => {
+    setRules({
+      ...rules,
+      filterTime: { ...ft, [field]: value },
+    });
+  };
+
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -354,6 +395,13 @@ export default function AdDetailsModal({
                 }}
               />
 
+              {/* Completion Rate is scoped by its own filter window */}
+              <FilterTimeSelect
+                label="Completion Rate"
+                value={ft.completionRate}
+                onChange={(v) => updateFilterTime('completionRate', v)}
+              />
+
               <EligibilityField
                 fieldName="minRegisteredDays"
                 label="Min Registered Days"
@@ -392,6 +440,13 @@ export default function AdDetailsModal({
                     value: checked ? currentValue : 0
                   });
                 }}
+              />
+
+              {/* Min 30-Day Trades + Min All Trades Count share this filter window */}
+              <FilterTimeSelect
+                label="Trade Count (30-Day + All Trades)"
+                value={ft.tradeCount}
+                onChange={(v) => updateFilterTime('tradeCount', v)}
               />
 
               <EligibilityField
@@ -477,6 +532,13 @@ export default function AdDetailsModal({
                     value: checked ? currentValue : 0
                   });
                 }}
+              />
+
+              {/* Min + Max Trade Volume share this filter window */}
+              <FilterTimeSelect
+                label="Trade Volume (Min + Max)"
+                value={ft.tradeVolume}
+                onChange={(v) => updateFilterTime('tradeVolume', v)}
               />
 
               <EligibilityField

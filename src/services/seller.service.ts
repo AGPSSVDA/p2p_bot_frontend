@@ -69,6 +69,20 @@ export interface SellerAdRules {
   eligibility: EligibilityRules;
   methods: VerificationMethods;
   cooldown?: ReorderCooldown;
+  filterTime?: EligibilityFilterTime;
+}
+
+/**
+ * Admin-selectable time scope for the eligibility criteria that support it.
+ * Binance enum: 1 = Last 30 Days, 2 = All-time.
+ *   tradeCount     -> Min 30-day Trades + Min All-Trades Count
+ *   completionRate -> Min Completion Rate
+ *   tradeVolume    -> Min / Max Trade Volume
+ */
+export interface EligibilityFilterTime {
+  tradeCount: 1 | 2;
+  completionRate: 1 | 2;
+  tradeVolume: 1 | 2;
 }
 
 export interface CriterionValue {
@@ -568,9 +582,10 @@ class SellerService {
    * Verification methods are NOT sent here (see updateAdMethods).
    */
   async syncEligibilityToBinance(adNo: string, rules: Partial<SellerAdRules>) {
-    // Send only the eligibility block; methods have no Binance equivalent.
+    // Send the eligibility block plus the admin's filter-time choices (30D vs
+    // All-time). Methods have no Binance equivalent, so they're not sent here.
     const res = await api.post(`/seller/ads/${adNo}/sync-eligibility`, {
-      rules: { eligibility: rules.eligibility },
+      rules: { eligibility: rules.eligibility, filterTime: rules.filterTime },
     });
     return res.data;
   }
