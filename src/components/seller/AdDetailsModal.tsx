@@ -384,6 +384,16 @@ export default function AdDetailsModal({
                 }}
               />
 
+              {/* Trade-count window: scopes Min 30-Day Trades AND Min All Trades Count.
+                  Placed right under Min 30-Day Trades so the choice is obvious. Pick
+                  All-time for reliable blocking (30-Day lets new 0-trade accounts in). */}
+              <FilterTimeSelect
+                title="Trade Count"
+                controls={['Min 30-Day Trades', 'Min All Trades Count']}
+                value={ft.tradeCount}
+                onChange={(v) => updateFilterTime('tradeCount', v)}
+              />
+
               <EligibilityField
                 fieldName="min30dayCompletionRate"
                 label="Min Completion Rate (%)"
@@ -450,14 +460,6 @@ export default function AdDetailsModal({
                     value: checked ? currentValue : 0
                   });
                 }}
-              />
-
-              {/* Min 30-Day Trades + Min All Trades Count share this filter window */}
-              <FilterTimeSelect
-                title="Trade Count"
-                controls={['Min 30-Day Trades', 'Min All Trades Count']}
-                value={ft.tradeCount}
-                onChange={(v) => updateFilterTime('tradeCount', v)}
               />
 
               <EligibilityField
