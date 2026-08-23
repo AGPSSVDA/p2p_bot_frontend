@@ -11,8 +11,6 @@ export default function SellerSettings() {
   const [usage, setUsage] = useState<OpenaiUsage | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [creditInput, setCreditInput] = useState('');
-  const [saving, setSaving] = useState(false);
 
   // SMS OTP config (text + matching DLT template id)
   const [smsTemplate, setSmsTemplate] = useState('');
@@ -24,7 +22,6 @@ export default function SellerSettings() {
       setLoading(true);
       const res = await sellerService.getOpenaiUsage();
       setUsage(res.data);
-      setCreditInput(String(res.data.creditAdded || ''));
       setError(null);
     } catch (err) {
       setError('Failed to load OpenAI usage');
@@ -64,20 +61,6 @@ export default function SellerSettings() {
   };
 
   useEffect(() => { fetchUsage(); fetchSmsConfig(); }, []);
-
-  const handleSaveCredit = async () => {
-    const amount = parseFloat(creditInput);
-    if (isNaN(amount) || amount < 0) return;
-    try {
-      setSaving(true);
-      await sellerService.setOpenaiCredit(amount);
-      await fetchUsage();
-    } catch (err) {
-      setError('Failed to save credit amount');
-    } finally {
-      setSaving(false);
-    }
-  };
 
   if (loading) {
     return (
@@ -168,34 +151,8 @@ export default function SellerSettings() {
             </p>
           ) : null}
 
-          {/* Set credit */}
-          <div className="surface-card rounded-2xl p-5">
-            <h3 className="font-semibold text-sm mb-1">Credit added on OpenAI</h3>
-            <p className="text-xs text-muted-foreground mb-3">
-              Enter the total USD you've added to your OpenAI account. Remaining is calculated as this minus what the bot has spent. (OpenAI doesn't expose live balance to project API keys.)
-            </p>
-            <div className="flex items-center gap-2 flex-wrap">
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={creditInput}
-                  onChange={(e) => setCreditInput(e.target.value)}
-                  placeholder="0.00"
-                  className="h-10 w-40 pl-7 pr-3 rounded-lg bg-background border border-input text-foreground focus-visible:ring-2 focus-visible:ring-primary/40"
-                />
-              </div>
-              <button
-                onClick={handleSaveCredit}
-                disabled={saving}
-                className="h-10 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition disabled:opacity-50"
-              >
-                {saving ? 'Saving…' : 'Save'}
-              </button>
-            </div>
-          </div>
+          {/* Credit is configured on the server via env OPENAI_CREDIT_USD — no UI card.
+              Remaining / added / spent already show in the hero + usage bar above. */}
 
           {/* Recent requests */}
           <div className="surface-card rounded-2xl overflow-hidden">

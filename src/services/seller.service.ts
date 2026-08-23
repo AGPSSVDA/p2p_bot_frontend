@@ -710,10 +710,7 @@ class SellerService {
     return res.data;
   }
 
-  async setOpenaiCredit(creditAdded: number) {
-    const res = await api.post<{ success: boolean; creditAdded: number }>('/seller/openai/credit', { creditAdded });
-    return res.data;
-  }
+  // Credit is now configured on the server via env OPENAI_CREDIT_USD — no setter.
 
   async getSyncStatus() {
     const res = await api.get<{ success: boolean; data: any }>('/seller/sync/status');
