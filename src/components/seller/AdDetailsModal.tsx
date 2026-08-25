@@ -694,31 +694,65 @@ export default function AdDetailsModal({
                         <SelectValue placeholder="Choose a payment gateway" />
                       </SelectTrigger>
                       <SelectContent className="bg-surface-2 border-border">
-                        <SelectItem value="easebuzz">Easebuzz</SelectItem>
+                        <SelectItem value="easebuzz">Easebuzz (payment link + QR)</SelectItem>
+                        <SelectItem value="express_upi">Express UPI (Binance native)</SelectItem>
                       </SelectContent>
                     </Select>
-                    <p className="text-[11px] text-muted-foreground mt-1">Required. The buyer pays the exact order amount via this gateway.</p>
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      {rules.methods.method3.paymentGateway === 'express_upi'
+                        ? 'Buyer pays to your UPI (shown as QR and/or link in chat). The bot detects the payment and auto-releases the crypto.'
+                        : 'The buyer pays the exact order amount via this gateway (payment link/QR sent in chat).'}
+                    </p>
+
+                    {/* Express UPI: choose what to show the buyer — QR and/or UPI link */}
+                    {rules.methods.method3.paymentGateway === 'express_upi' && (
+                      <div className="mt-3 space-y-2 rounded-lg bg-background/60 border border-dashed border-border p-3">
+                        <span className="text-[11px] text-muted-foreground">Show the buyer:</span>
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id="express_qr"
+                            checked={getMethodEnabled(rules.methods.method3.expressQrEnabled)}
+                            onCheckedChange={(checked) => updateMethod('method3', 'expressQrEnabled', checked)}
+                            className="h-5 w-5 shrink-0"
+                          />
+                          <Label htmlFor="express_qr" className="text-sm text-foreground cursor-pointer">Enable QR (scannable UPI QR)</Label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id="express_link"
+                            checked={getMethodEnabled(rules.methods.method3.expressLinkEnabled)}
+                            onCheckedChange={(checked) => updateMethod('method3', 'expressLinkEnabled', checked)}
+                            className="h-5 w-5 shrink-0"
+                          />
+                          <Label htmlFor="express_link" className="text-sm text-foreground cursor-pointer">Enable Link (UPI ID / upi:// link)</Label>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
-                  <div>
-                    <Label htmlFor="delivery_method" className="text-sm text-foreground">
-                      Delivery Method
-                    </Label>
-                    <Select
-                      value={rules.methods.method3.deliveryMethod}
-                      onValueChange={(value) =>
-                        updateMethod('method3', 'deliveryMethod', value)
-                      }
-                    >
-                      <SelectTrigger id="delivery_method" className="bg-surface-2 border-border text-foreground mt-1">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-surface-2 border-border">
-                        <SelectItem value="payment_link">Payment Link</SelectItem>
-                        <SelectItem value="qr_code">QR Code</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {/* Delivery Method only applies to link-based gateways (Easebuzz).
+                      Express UPI has no link, so hide it there. */}
+                  {rules.methods.method3.paymentGateway !== 'express_upi' && (
+                    <div>
+                      <Label htmlFor="delivery_method" className="text-sm text-foreground">
+                        Delivery Method
+                      </Label>
+                      <Select
+                        value={rules.methods.method3.deliveryMethod}
+                        onValueChange={(value) =>
+                          updateMethod('method3', 'deliveryMethod', value)
+                        }
+                      >
+                        <SelectTrigger id="delivery_method" className="bg-surface-2 border-border text-foreground mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-surface-2 border-border">
+                          <SelectItem value="payment_link">Payment Link</SelectItem>
+                          <SelectItem value="qr_code">QR Code</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
 
                   <div className="flex items-center gap-2">
                     <Checkbox

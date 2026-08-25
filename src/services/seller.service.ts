@@ -182,6 +182,9 @@ export interface VerificationMethods {
     paymentLink: boolean;
     paymentGateway: string;
     deliveryMethod: string;
+    // Express UPI: which of the seller's UPI details to show the buyer.
+    expressQrEnabled?: boolean;
+    expressLinkEnabled?: boolean;
   };
 }
 
