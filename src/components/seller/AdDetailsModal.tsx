@@ -46,8 +46,8 @@ const fieldValidations: Record<string, { min?: number; max?: number; step?: numb
   minAllTradesCount: { min: 0, max: 9999, step: 1, description: 'Total trades, all-time (whole number)' },
   minBuyOrdersCount: { min: 0, max: 9999, step: 1, description: 'Buy orders, all-time (whole number)' },
   minSellOrdersCount: { min: 0, max: 9999, step: 1, description: 'Sell orders, all-time (whole number)' },
-  minTradeVolume: { min: 0, max: 999999999, step: 1, description: 'Minimum USDT volume, all-time (advanced)' },
-  maxTradeVolume: { min: 0, max: 999999999, step: 1, description: 'Maximum USDT volume, all-time (advanced)' },
+  minTradeVolume: { min: 0, max: 999999999, step: 0.0001, float: true, description: 'Minimum trade volume (decimals allowed, e.g. 0.0039). Binance measures this in BTC.' },
+  maxTradeVolume: { min: 0, max: 999999999, step: 0.0001, float: true, description: 'Maximum trade volume (decimals allowed, e.g. 0.07). Binance measures this in BTC.' },
   minBtcHolding: { min: 0, max: 1000, step: 0.0001, float: true, description: 'Minimum BTC amount, e.g. 0.01 (decimals allowed)' },
 };
 
@@ -81,6 +81,32 @@ function EligibilityField({
 }: any) {
   const validation = fieldValidations[fieldName];
   const warning = enabled ? getFieldWarning(fieldName, value) : null;
+  const isFloat = !!validation?.float;
+
+  // For decimal fields we must keep the RAW typed text locally, otherwise binding
+  // the input to a number collapses intermediate states ("0.", "0.00") back to
+  // "0" on every keystroke — making it impossible to type e.g. 0.0039. We sync
+  // the local text down from the parent number when they disagree numerically
+  // (external change), but leave the user's in-progress text alone otherwise.
+  const [rawText, setRawText] = useState<string>(String(value ?? ''));
+  useEffect(() => {
+    if (!isFloat) return;
+    const parsed = parseFloat(rawText);
+    // If what the user has typed already equals the parent's value, don't clobber
+    // their text (e.g. they typed "0.10" and parent holds 0.1 — keep "0.10").
+    if (!(Number.isFinite(parsed) && parsed === Number(value))) {
+      setRawText(value === 0 || value == null ? '' : String(value));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, isFloat]);
+
+  const handleChange = (e: any) => {
+    if (isFloat) {
+      // Allow empty, a lone "0.", digits and a single decimal point while typing.
+      setRawText(e.target.value);
+    }
+    onChange(e);
+  };
 
   return (
     <div className="pb-3 border-b border-border last:border-b-0">
@@ -98,16 +124,18 @@ function EligibilityField({
         </div>
       </div>
 
-      {/* 2) Then the input for the value */}
+      {/* 2) Then the input for the value. Float fields use text mode + raw local
+          state so decimals can actually be typed; integer fields stay number. */}
       <Input
         id={fieldName}
-        type="number"
+        type={isFloat ? 'text' : 'number'}
+        inputMode={isFloat ? 'decimal' : undefined}
         min={validation?.min}
         max={validation?.max}
         step={validation?.step ?? 1}
         disabled={!enabled}
-        value={value}
-        onChange={onChange}
+        value={isFloat ? rawText : value}
+        onChange={handleChange}
         placeholder="0"
         className={`w-full bg-background border border-input text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-40 disabled:cursor-not-allowed ${
           warning ? 'border-amber-500' : ''
@@ -509,7 +537,7 @@ export default function AdDetailsModal({
 
               <EligibilityField
                 fieldName="minTradeVolume"
-                label="Min Trade Volume (USDT)"
+                label="Min Trade Volume (BTC)"
                 value={getCriterionValue(rules.eligibility.minTradeVolume)}
                 enabled={getCriterionEnabled(rules.eligibility.minTradeVolume)}
                 onChange={(e: any) =>
@@ -529,7 +557,7 @@ export default function AdDetailsModal({
 
               <EligibilityField
                 fieldName="maxTradeVolume"
-                label="Max Trade Volume (USDT)"
+                label="Max Trade Volume (BTC)"
                 value={getCriterionValue(rules.eligibility.maxTradeVolume)}
                 enabled={getCriterionEnabled(rules.eligibility.maxTradeVolume)}
                 onChange={(e: any) =>
@@ -550,7 +578,7 @@ export default function AdDetailsModal({
               {/* Min + Max Trade Volume share this filter window */}
               <FilterTimeSelect
                 title="Trade Volume"
-                controls={['Min Trade Volume (USDT)', 'Max Trade Volume (USDT)']}
+                controls={['Min Trade Volume (BTC)', 'Max Trade Volume (BTC)']}
                 value={ft.tradeVolume}
                 onChange={(v) => updateFilterTime('tradeVolume', v)}
               />

@@ -299,7 +299,7 @@ export default function SellerAds() {
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
                           {(typeof ad.rules.eligibility.minTradeVolume === 'object' && (ad.rules.eligibility.minTradeVolume as any).enabled) && (
                             <div>
-                              <span className="text-xs text-muted-foreground">Min Trade Volume (USDT)</span>
+                              <span className="text-xs text-muted-foreground">Min Trade Volume (BTC)</span>
                               <p className="font-bold tabular-nums">
                                 {(ad.rules.eligibility.minTradeVolume as any).value || 0}
                               </p>
@@ -307,7 +307,7 @@ export default function SellerAds() {
                           )}
                           {(typeof ad.rules.eligibility.maxTradeVolume === 'object' && (ad.rules.eligibility.maxTradeVolume as any).enabled) && (
                             <div>
-                              <span className="text-xs text-muted-foreground">Max Trade Volume (USDT)</span>
+                              <span className="text-xs text-muted-foreground">Max Trade Volume (BTC)</span>
                               <p className="font-bold tabular-nums">
                                 {(ad.rules.eligibility.maxTradeVolume as any).value || 0}
                               </p>
