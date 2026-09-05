@@ -40,7 +40,7 @@ interface AdDetailsModalProps {
 //   - minBtcHolding        -> buyerBtcPositionLimit (BTC amount, FLOAT e.g. 0.01)
 // `float` marks fields that must NOT be rounded to a whole number.
 const fieldValidations: Record<string, { min?: number; max?: number; step?: number; float?: boolean; description: string }> = {
-  min30dayTrades: { min: 0, max: 9999, step: 1, description: 'Min total completed trades the buyer must have. This actually blocks under-qualified buyers (unlike the old 30-day-only rule, which Binance did not enforce).' },
+  min30dayTrades: { min: 0, max: 9999, step: 1, description: 'MAX total completed trades allowed. e.g. 20 = buyers with fewer than 20 trades can order; buyers with 20+ trades are blocked (targets new buyers).' },
   min30dayCompletionRate: { min: 0, max: 100, step: 0.1, float: true, description: 'Percentage 0-100 (decimals allowed, e.g. 95.5)' },
   minRegisteredDays: { min: 0, max: 90, step: 1, description: 'Min account age in days (e.g. 30). Binance max is 90 — higher values are rejected.' },
   minAllTradesCount: { min: 0, max: 9999, step: 1, description: 'Total trades, all-time (whole number)' },
@@ -366,7 +366,7 @@ export default function AdDetailsModal({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 bg-surface-2 p-3 sm:p-4 rounded-xl border border-border">
               <EligibilityField
                 fieldName="min30dayTrades"
-                label="Min Trades (completed)"
+                label="Max Trades (completed)"
                 value={getCriterionValue(rules.eligibility.min30dayTrades)}
                 enabled={getCriterionEnabled(rules.eligibility.min30dayTrades)}
                 onChange={(e: any) =>
@@ -389,7 +389,7 @@ export default function AdDetailsModal({
                   All-time for reliable blocking (30-Day lets new 0-trade accounts in). */}
               <FilterTimeSelect
                 title="Trade Count"
-                controls={['Min Trades (completed)', 'Min All Trades Count']}
+                controls={['Max Trades (completed)', 'Min All Trades Count']}
                 value={ft.tradeCount}
                 onChange={(v) => updateFilterTime('tradeCount', v)}
               />
